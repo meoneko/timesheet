@@ -1,0 +1,64 @@
+@model TeamTimesheetReport
+@{
+    ViewData["Title"] = "Team Timesheet";
+    var filter = ViewData["Filter"] as ReportsFilterViewModel ?? new ReportsFilterViewModel();
+    ViewData["FormAction"] = "TeamTimesheet";
+    ViewData["ExportAction"] = "ExportTeamTimesheet";
+    ViewData["ShowUserDropdown"] = false;
+    ViewData["ShowProjectDropdown"] = true;
+}
+
+<h1 class="h3 mb-3">Team Timesheet</h1>
+
+<partial name="_Filters" model="filter" />
+
+@if (!Model.UserGroups.Any())
+{
+    <div class="alert alert-info">No time logged in the selected range.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>User</th>
+                    <th>Project</th>
+                    <th class="text-end">Hours</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var ug in Model.UserGroups)
+                {
+                    var userRowspan = ug.ProjectBuckets.Count + 1; // +1 for the subtotal row
+                    var isFirstBucket = true;
+                    @foreach (var pb in ug.ProjectBuckets)
+                    {
+                        <tr>
+                            @if (isFirstBucket)
+                            {
+                                <td rowspan="@userRowspan" class="align-middle">
+                                    <div class="fw-semibold">@ug.UserDisplayName</div>
+                                    <div class="text-muted small">@ug.UserEmail</div>
+                                </td>
+                                isFirstBucket = false;
+                            }
+                            <td><span class="badge bg-secondary">@pb.ProjectCode</span> @pb.ProjectName</td>
+                            <td class="text-end">@pb.Hours.ToString("0.00")</td>
+                        </tr>
+                    }
+                    <tr class="table-secondary fw-semibold">
+                        <td class="text-end">Subtotal</td>
+                        <td class="text-end">@ug.SubtotalHours.ToString("0.00")</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr class="table-light fw-semibold">
+                    <td colspan="2" class="text-end">Grand Total</td>
+                    <td class="text-end">@Model.TotalHours.ToString("0.00")</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+}

@@ -1,0 +1,1 @@
+Get-Content build_test.log -Tail 15

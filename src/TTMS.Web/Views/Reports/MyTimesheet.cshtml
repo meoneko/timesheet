@@ -1,0 +1,57 @@
+@model MyTimesheetReport
+@{
+    ViewData["Title"] = "My Timesheet";
+    var filter = ViewData["Filter"] as ReportsFilterViewModel ?? new ReportsFilterViewModel();
+    ViewData["FormAction"] = "MyTimesheet";
+    ViewData["ExportAction"] = "ExportMyTimesheet";
+    ViewData["ShowUserDropdown"] = false;
+    ViewData["ShowProjectDropdown"] = true;
+}
+
+<h1 class="h3 mb-3">My Timesheet</h1>
+
+<partial name="_Filters" model="filter" />
+
+@if (!Model.Rows.Any())
+{
+    <div class="alert alert-info">No time entries found for the selected range.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-sm table-striped align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Date</th>
+                    <th>Project</th>
+                    <th>Task</th>
+                    <th class="text-end">Hours</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in Model.Rows)
+                {
+                    <tr>
+                        <td>@r.WorkDate.ToString("yyyy-MM-dd")</td>
+                        <td><span class="badge bg-secondary">@r.ProjectCode</span> @r.ProjectName</td>
+                        <td>
+                            <a asp-controller="Tasks" asp-action="Details" asp-route-id="@r.TaskId">
+                                @r.TaskTitle
+                            </a>
+                        </td>
+                        <td class="text-end">@r.DurationHours.ToString("0.00")</td>
+                        <td class="text-muted small">@r.WorkLogText</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr class="table-light fw-semibold">
+                    <td colspan="3" class="text-end">Total</td>
+                    <td class="text-end">@Model.TotalHours.ToString("0.00")</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+}

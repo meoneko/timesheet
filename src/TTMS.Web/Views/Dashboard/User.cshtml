@@ -1,0 +1,215 @@
+@model TTMS.Web.Models.ViewModels.UserDashboardViewModel
+@using TTMS.Web.Models.Enums
+@{
+    ViewData["Title"] = "My Dashboard";
+
+    string StatusBadge(TaskItemStatus s) => s switch
+    {
+        TaskItemStatus.Todo => "bg-secondary",
+        TaskItemStatus.InProgress => "bg-primary",
+        TaskItemStatus.Pending => "bg-warning text-dark",
+        TaskItemStatus.Blocked => "bg-danger",
+        TaskItemStatus.Done => "bg-success",
+        TaskItemStatus.Cancelled => "bg-dark",
+        _ => "bg-light text-dark border"
+    };
+
+    string PriorityBadge(TaskPriority p) => p switch
+    {
+        TaskPriority.Low => "bg-light text-dark border",
+        TaskPriority.Medium => "bg-info text-dark",
+        TaskPriority.High => "bg-warning text-dark",
+        TaskPriority.Critical => "bg-danger",
+        _ => "bg-light text-dark border"
+    };
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Welcome back, @Model.DisplayName</h1>
+    <div class="btn-group btn-group-sm">
+        <a asp-controller="QuickActions" asp-action="LogTime" class="btn btn-primary">+ Log time</a>
+        <a asp-controller="Reports" asp-action="ExportMyTimesheet" class="btn btn-outline-secondary">Export Excel</a>
+    </div>
+</div>
+
+<nav aria-label="breadcrumb" class="small mb-3">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
+    </ol>
+</nav>
+
+<!-- ============ KPI CARDS ============ -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-xl-2-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small text-uppercase">Today</div>
+                <div class="display-6 fw-semibold text-primary">@Model.TodayHours.ToString("0.#")<small class="fs-6 text-muted">h</small></div>
+                <div class="text-muted small">logged today</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small text-uppercase">This Week</div>
+                <div class="display-6 fw-semibold text-info">@Model.WeekHours.ToString("0.#")<small class="fs-6 text-muted">h</small></div>
+                <div class="text-muted small">since Monday</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small text-uppercase">This Month</div>
+                <div class="display-6 fw-semibold text-secondary">@Model.MonthHours.ToString("0.#")<small class="fs-6 text-muted">h</small></div>
+                <div class="text-muted small">since 1st of month</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2-4">
+        <a asp-controller="QuickActions" asp-action="MyTasks" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100 bg-warning bg-opacity-10">
+                <div class="card-body">
+                    <div class="text-muted small text-uppercase">Open Tasks</div>
+                    <div class="display-6 fw-semibold text-warning">@Model.OpenTaskCount</div>
+                    <div class="text-muted small">assigned to me</div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2-4">
+        <a asp-controller="QuickActions" asp-action="MyTasks" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100 bg-success bg-opacity-10">
+                <div class="card-body">
+                    <div class="text-muted small text-uppercase">Completed</div>
+                    <div class="display-6 fw-semibold text-success">@Model.CompletedTaskCount</div>
+                    <div class="text-muted small">all-time done</div>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- ============ QUICK ACTIONS ============ -->
+<div class="card border-0 shadow-sm mb-4 bg-light">
+    <div class="card-body py-2 d-flex flex-wrap gap-2 align-items-center">
+        <span class="text-muted small me-2">Quick actions:</span>
+        <a asp-controller="QuickActions" asp-action="LogTime" class="btn btn-sm btn-primary">+ Log time</a>
+        <a asp-controller="QuickActions" asp-action="MyTasks" class="btn btn-sm btn-outline-primary">My tasks</a>
+        <a asp-controller="Projects" asp-action="Index" class="btn btn-sm btn-outline-secondary">Browse projects</a>
+        <a asp-controller="Reports" asp-action="MyTimesheet" class="btn btn-sm btn-outline-secondary">My timesheet</a>
+        <a asp-controller="Reports" asp-action="ExportMyTimesheet" class="btn btn-sm btn-outline-success ms-auto">Export Excel</a>
+    </div>
+</div>
+
+<!-- ============ TABLES ============ -->
+<div class="row g-3">
+    <!-- Recent Tasks -->
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">Recent Tasks</h6>
+                <a asp-controller="QuickActions" asp-action="MyTasks" class="small">View all</a>
+            </div>
+            <div class="table-responsive">
+                @if (!Model.RecentTasks.Any())
+                {
+                    <div class="text-center text-muted py-4">
+                        <div>No open tasks assigned to you.</div>
+                        <a asp-controller="Projects" asp-action="Index" class="btn btn-sm btn-outline-primary mt-2">Browse projects</a>
+                    </div>
+                }
+                else
+                {
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Task</th>
+                                <th>Status</th>
+                                <th>Priority</th>
+                                <th class="text-end">Actual</th>
+                                <th class="text-end">Due</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var t in Model.RecentTasks)
+                            {
+                                <tr>
+                                    <td>
+                                        <a asp-controller="Tasks" asp-action="Details" asp-route-id="@t.Id" class="fw-semibold text-decoration-none">@t.Title</a>
+                                        <div class="text-muted small">
+                                            <span class="badge bg-light text-dark border">@t.ProjectCode</span>
+                                            @t.ProjectName
+                                        </div>
+                                    </td>
+                                    <td><span class="badge @StatusBadge(t.Status)">@t.Status</span></td>
+                                    <td><span class="badge @PriorityBadge(t.Priority)">@t.Priority</span></td>
+                                    <td class="text-end small">@t.ActualHours.ToString("0.#")h</td>
+                                    <td class="text-end small">@(t.DueDate?.ToString("MM-dd") ?? "-")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Time Entries -->
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">Recent Time Entries</h6>
+                <a asp-controller="QuickActions" asp-action="LogTime" class="small">+ Log time</a>
+            </div>
+            <div class="table-responsive">
+                @if (!Model.RecentTimeEntries.Any())
+                {
+                    <div class="text-center text-muted py-4">
+                        <div>No time logged yet.</div>
+                        <a asp-controller="QuickActions" asp-action="LogTime" class="btn btn-sm btn-primary mt-2">Log your first entry</a>
+                    </div>
+                }
+                else
+                {
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Duration</th>
+                                <th>Task</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var e in Model.RecentTimeEntries)
+                            {
+                                <tr>
+                                    <td class="small text-muted">@e.WorkDate.ToString("MM-dd")</td>
+                                    <td><span class="badge bg-primary">@e.DurationHours.ToString("0.#")h</span></td>
+                                    <td>
+                                        <a asp-controller="Tasks" asp-action="Details" asp-route-id="@e.TaskId" asp-fragment="time-entries" class="text-decoration-none">@e.TaskTitle</a>
+                                        <div class="text-muted small">
+                                            <span class="badge bg-light text-dark border">@e.ProjectCode</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Make 5 KPI cards spread evenly on xl screens */
+    @@media (min-width: 1200px) {
+        .col-xl-2-4 {
+            flex: 0 0 auto;
+            width: 20%;
+        }
+    }
+</style>
+

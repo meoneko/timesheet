@@ -1,0 +1,194 @@
+/* ===========================================================================
+   TTMS Sidebar (Option A: Jira-inspired, minimal)
+   - Desktop >= md: 220px sticky sidebar on the left.
+   - Mobile  <  md: off-canvas drawer controlled by topbar hamburger.
+   - No third-party CSS framework dependency beyond Bootstrap 5.
+   =========================================================================== */
+
+.ttms-app {
+    display: flex;
+    min-height: 100vh;
+}
+
+.ttms-main {
+    flex: 1 1 auto;
+    min-width: 0; /* prevent flex children from forcing horizontal scroll */
+    display: flex;
+    flex-direction: column;
+}
+
+/* ---- Top bar ---- */
+.ttms-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+}
+
+.ttms-topbar .container-fluid {
+    display: flex;
+    align-items: center;
+}
+
+/* ---- Sidebar (desktop) ---- */
+.ttms-sidebar {
+    width: 220px;
+    flex: 0 0 220px;
+    background-color: #f8f9fa;
+    border-right: 1px solid #dee2e6;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.ttms-sidebar-nav {
+    padding: 0.75rem 0 1.5rem;
+}
+
+.ttms-sidebar-search {
+    margin-top: 0.25rem;
+}
+
+/* ---- Side nav (vertical link list) ---- */
+.ttms-side-nav {
+    padding-left: 0;
+    margin-bottom: 0;
+    list-style: none;
+}
+
+.ttms-side-nav .nav-item {
+    margin: 0;
+}
+
+.ttms-side-nav .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #212529;
+    padding: 0.4rem 0.75rem;
+    border-left: 3px solid transparent;
+    border-radius: 0;
+    font-size: 0.92rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.ttms-side-nav .nav-link:hover {
+    background-color: #e9ecef;
+    text-decoration: none;
+}
+
+.ttms-side-nav .nav-link.active {
+    background-color: #e7f1ff;
+    color: #0a58ca;
+    border-left-color: #0a58ca;
+    font-weight: 600;
+}
+
+.ttms-side-nav .nav-link .text-truncate {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.ttms-side-icon {
+    width: 1.1rem;
+    display: inline-block;
+    text-align: center;
+    font-size: 0.95rem;
+    color: #6c757d;
+    flex: 0 0 1.1rem;
+    line-height: 1;
+}
+
+.ttms-side-code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.ttms-side-status {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.35rem;
+}
+
+.ttms-side-section-label {
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: #6c757d;
+}
+
+.ttms-side-projects .nav-link {
+    padding-right: 0.5rem;
+}
+
+/* ---- Recent projects (filled by JS from localStorage) ---- */
+.ttms-side-recent .nav-link {
+    color: #495057;
+    font-style: italic;
+}
+
+.ttms-side-recent-empty {
+    padding: 0.25rem 0.75rem;
+}
+
+/* ---- Off-canvas (mobile) ---- */
+@media (max-width: 767.98px) {
+    .ttms-sidebar-offcanvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 240px;
+        height: 100vh;
+        z-index: 1040;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 0 1rem rgba(0, 0, 0, 0.2);
+        background-color: #f8f9fa;
+        animation: ttms-slide-in 180ms ease-out;
+    }
+
+    .ttms-backdrop {
+        position: fixed;
+        inset: 0;
+        background-color: rgba(0, 0, 0, 0.35);
+        z-index: 1035;
+        animation: ttms-fade-in 160ms ease-out;
+    }
+
+    @keyframes ttms-slide-in {
+        from { transform: translateX(-100%); }
+        to   { transform: translateX(0); }
+    }
+
+    @keyframes ttms-fade-in {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+    }
+}
+
+/* ---- Content ---- */
+.ttms-content {
+    flex: 1 1 auto;
+    padding: 1rem 1.25rem 2rem;
+}
+
+@media (max-width: 575.98px) {
+    .ttms-content { padding: 0.75rem 0.75rem 1.5rem; }
+}
+
+/* Keyboard focus ring (do not strip). */
+.ttms-sidebar .nav-link:focus-visible {
+    outline: 2px solid #258cfb;
+    outline-offset: -2px;
+}
+
+.ttms-sidebar-header { flex: 0 0 auto; }
+.ttms-sidebar-nav { flex: 1 1 auto; }
+
+.ttms-side-nav .nav-link.active .ttms-side-icon {
+    color: #0a58ca;
+}
+

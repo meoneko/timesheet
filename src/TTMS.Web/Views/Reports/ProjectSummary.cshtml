@@ -1,0 +1,94 @@
+@model ProjectSummaryReport
+@using TTMS.Web.Models.Enums
+@{
+    ViewData["Title"] = "Project Summary";
+    var filter = ViewData["Filter"] as ReportsFilterViewModel ?? new ReportsFilterViewModel();
+    ViewData["FormAction"] = "ProjectSummary";
+    ViewData["ExportAction"] = "ExportProjectSummary";
+    ViewData["ShowUserDropdown"] = false;
+    ViewData["ShowProjectDropdown"] = true;
+    var noProject = ViewBag.NoProjectSelected as bool? ?? false;
+}
+
+<h1 class="h3 mb-3">Project Summary</h1>
+
+<partial name="_Filters" model="filter" />
+
+@if (noProject || Model.ProjectId == 0)
+{
+    <div class="alert alert-info">
+        Select a project above to see task-level estimate vs actual.
+    </div>
+}
+else
+{
+    <div class="card card-body bg-light mb-3">
+        <div class="d-flex flex-wrap gap-3 align-items-center">
+            <h2 class="h5 mb-0 me-3">
+                <span class="badge bg-secondary">@Model.ProjectCode</span>
+                @Model.ProjectName
+            </h2>
+            <span class="badge bg-info text-dark">@Model.ProjectStatus</span>
+            <span class="text-muted small ms-auto">
+                @(Model.FromDate?.ToString("yyyy-MM-dd") ?? "—") → @(Model.ToDate?.ToString("yyyy-MM-dd") ?? "—")
+            </span>
+        </div>
+    </div>
+
+    @if (!Model.Rows.Any())
+    {
+        <div class="alert alert-info">No tasks in this project.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Task</th>
+                        <th>Status</th>
+                        <th>Priority</th>
+                        <th>Assignee</th>
+                        <th class="text-end">Estimated</th>
+                        <th class="text-end">Actual</th>
+                        <th class="text-end">Variance</th>
+                        <th>Due</th>
+                        <th class="text-end"># Entries</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in Model.Rows)
+                    {
+                        var varianceClass = r.Variance > 0 ? "text-danger" : (r.Variance < 0 ? "text-success" : "");
+                        <tr>
+                            <td>
+                                <a asp-controller="Tasks" asp-action="Details" asp-route-id="@r.TaskId">@r.TaskTitle</a>
+                            </td>
+                            <td><span class="badge bg-light text-dark border">@r.Status</span></td>
+                            <td>
+                                <span class="badge bg-@(r.Priority switch { TaskPriority.Critical => "danger", TaskPriority.High => "warning", TaskPriority.Medium => "primary", _ => "secondary" }) text-@(r.Priority == TaskPriority.High ? "dark" : "white")">
+                                    @r.Priority
+                                </span>
+                            </td>
+                            <td>@r.AssigneeName</td>
+                            <td class="text-end">@r.EstimatedHours.ToString("0.00")</td>
+                            <td class="text-end">@r.ActualHours.ToString("0.00")</td>
+                            <td class="text-end @varianceClass">@r.Variance.ToString("+0.00;-0.00;0.00")</td>
+                            <td>@(r.DueDate?.ToString("yyyy-MM-dd") ?? "—")</td>
+                            <td class="text-end">@r.TimeEntryCount</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="table-light fw-semibold">
+                        <td colspan="4" class="text-end">Totals</td>
+                        <td class="text-end">@Model.TotalEstimatedHours.ToString("0.00")</td>
+                        <td class="text-end">@Model.TotalActualHours.ToString("0.00")</td>
+                        <td class="text-end">@Model.TotalVariance.ToString("+0.00;-0.00;0.00")</td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    }
+}

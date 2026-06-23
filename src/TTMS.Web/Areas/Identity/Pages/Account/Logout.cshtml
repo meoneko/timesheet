@@ -1,0 +1,29 @@
+@page
+@using Microsoft.AspNetCore.Identity
+@using TTMS.Web.Models.Entities
+@inject SignInManager<ApplicationUser> SignInManager
+@model LogoutModel
+@{
+    ViewData["Title"] = "Log out";
+}
+
+<header>
+    <h1>@ViewData["Title"]</h1>
+    @{
+        var hasExternalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).Any();
+    }
+    @if (hasExternalLogins)
+    {
+        <p>You can log out of this session by clicking the button below, or by closing your browser.</p>
+    }
+    else
+    {
+        <p>Are you sure you want to log out?</p>
+    }
+</header>
+<div>
+    <form id="logoutForm" method="post">
+        <button type="submit" class="btn btn-primary">Log out</button>
+        <a asp-area="" asp-controller="Home" asp-action="Index" class="btn btn-link">Cancel</a>
+    </form>
+</div>

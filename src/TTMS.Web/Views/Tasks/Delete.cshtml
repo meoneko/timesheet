@@ -1,0 +1,44 @@
+﻿@model TaskDetailViewModel
+@using TTMS.Web.Models.Enums
+@{
+    ViewData["Title"] = $"Delete {Model.Title}";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Index">Projects</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Details" asp-route-id="@Model.ProjectId">@Model.ProjectCode</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@Model.ProjectId">Tasks</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Tasks" asp-action="Details" asp-route-projectId="@Model.ProjectId" asp-route-id="@Model.Id">@Model.Title</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Delete</li>
+    </ol>
+</nav>
+
+<h1 class="h3 mb-3 text-danger">Delete task</h1>
+
+<div class="alert alert-warning">
+    <p class="mb-1">You are about to delete the following task:</p>
+    <p class="mb-0"><strong>@Model.Title</strong></p>
+</div>
+
+<dl class="row small mb-3">
+    <dt class="col-sm-2">Status</dt>
+    <dd class="col-sm-10"><partial name="_TaskStatusBadge" model="Model.Status" /></dd>
+    <dt class="col-sm-2">Priority</dt>
+    <dd class="col-sm-10"><partial name="_TaskPriorityBadge" model="Model.Priority" /></dd>
+    <dt class="col-sm-2">Assignee</dt>
+    <dd class="col-sm-10">@Model.AssigneeName</dd>
+    <dt class="col-sm-2">Time entries</dt>
+    <dd class="col-sm-10">@Model.TimeEntryCount (@Model.ActualHours.ToString("0.##")h)</dd>
+    <dt class="col-sm-2">Attachments</dt>
+    <dd class="col-sm-10">@Model.Attachments.Count</dd>
+</dl>
+
+<p class="text-muted small">The task will be soft-deleted. Time entries and attachments remain in the database but will be hidden from lists.</p>
+
+<form asp-action="Delete" asp-route-id="@Model.Id" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="projectId" value="@Model.ProjectId" />
+    <button type="submit" class="btn btn-danger">Yes, delete this task</button>
+    <a asp-action="Details" asp-route-projectId="@Model.ProjectId" asp-route-id="@Model.Id" class="btn btn-outline-secondary ms-2">Cancel</a>
+</form>

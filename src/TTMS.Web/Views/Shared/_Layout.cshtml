@@ -1,0 +1,148 @@
+﻿@using System.Security.Claims
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - TTMS</title>
+    <link rel="stylesheet" href="~/lib/bootstrap-icons/bootstrap-icons.min.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/sidebar.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/TTMS.Web.styles.css" asp-append-version="true" />
+</head>
+<body data-user-id="@(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "")">
+                                                @if (User.Identity?.IsAuthenticated == true)
+                        {
+    <div class="ttms-app with-sidebar">
+        <aside class="ttms-sidebar d-none d-md-block" aria-label="Primary navigation">
+            <partial name="_Sidebar" />
+        </aside>
+
+        <div class="ttms-backdrop d-md-none" data-sidebar-close hidden></div>
+        <aside class="ttms-sidebar ttms-sidebar-offcanvas d-md-none" aria-label="Primary navigation" hidden>
+            <partial name="_Sidebar" />
+        </aside>
+
+        <div class="ttms-main">
+            <header>
+                <nav class="navbar navbar-light bg-white border-bottom box-shadow ttms-topbar">
+                    <div class="container-fluid">
+                        <button type="button" class="btn btn-outline-secondary btn-sm d-md-none me-2 ttms-sidebar-toggle" aria-label="Open menu" aria-controls="ttmsSidebarOffcanvas" aria-expanded="false"><i class="bi bi-list"></i></button>
+                        <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">TTMS</a>
+                        <div class="ms-auto">
+                            <partial name="_LoginPartial" />
+                        </div>
+                    </div>
+                </nav>
+    </header>
+            <div class="container-fluid ttms-content">
+        <main role="main" class="pb-3">
+            @if (TempData["StatusMessage"] is string ok)
+            {
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    @ok
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+            @if (TempData["ErrorMessage"] is string err)
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    @err
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+            @RenderBody()
+        </main>
+    </div>
+    <footer class="border-top footer text-muted">
+                <div class="container-fluid">
+            &copy; @DateTime.UtcNow.Year - TTMS
+        </div>
+    </footer>
+        </div>
+    </div>
+}
+else
+{
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+            <div class="container-fluid">
+                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">TTMS</a>
+                <partial name="_LoginPartial" />
+            </div>
+        </nav>
+    </header>
+    <div class="container">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; @DateTime.UtcNow.Year - TTMS
+        </div>
+    </footer>
+}
+
+        <script src="~/lib/jquery/dist/jquery.min.js"></script>
+        <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="~/js/site.js" asp-append-version="true"></script>
+        <script>
+            // Debounced global search box (spec section 13): auto-submit 400ms after the
+            // user stops typing. Falls through to a normal form submit if JS is disabled.
+            (function () {
+            // Two search inputs can coexist (top-nav legacy + sidebar). Wire whichever exists.
+            var inputs = document.querySelectorAll('#globalSearchInput, #sidebarSearchInput');
+            inputs.forEach(function (input) {
+                var form = input.closest('form');
+                if (!form) return;
+                var timer = null;
+                input.addEventListener('input', function () {
+                    if (timer) clearTimeout(timer);
+                    timer = setTimeout(function () { form.submit(); }, 400);
+                });
+                input.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') { if (timer) clearTimeout(timer); form.submit(); }
+                    if (e.key === 'Escape') { input.value = ''; }
+                });
+            });
+            })();
+
+        // Sidebar off-canvas (mobile only).
+        (function () {
+            var toggle = document.querySelector('.ttms-sidebar-toggle');
+            var offcanvas = document.querySelector('.ttms-sidebar-offcanvas');
+            var backdrop = document.querySelector('.ttms-backdrop');
+            if (!toggle || !offcanvas || !backdrop) return;
+            function open() {
+                offcanvas.hidden = false;
+                backdrop.hidden = false;
+                toggle.setAttribute('aria-expanded', 'true');
+            }
+            function close() {
+                offcanvas.hidden = true;
+                backdrop.hidden = true;
+                toggle.setAttribute('aria-expanded', 'false');
+            }
+            toggle.addEventListener('click', open);
+            backdrop.addEventListener('click', close);
+            document.querySelectorAll('[data-sidebar-close]').forEach(function (el) {
+                el.addEventListener('click', close);
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && !offcanvas.hidden) close();
+            });
+            // Auto-close when a sidebar link is followed (single-page feel on mobile).
+            offcanvas.querySelectorAll('a').forEach(function (a) {
+                a.addEventListener('click', function () { if (!offcanvas.hidden) close(); });
+            });
+        })();
+        </script>
+    @* TinyMCE partial is loaded only on views that opt in via the @section Scripts block
+        (Project Create/Edit; Step 8 will add it to Task Create/Edit). The partial is intentionally
+        NOT included globally because TinyMCE is ~1MB and most pages do not need it. *@
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
+

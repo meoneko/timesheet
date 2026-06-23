@@ -1,0 +1,101 @@
+﻿@model List<TaskListItem>
+@using TTMS.Web.Models.ViewModels
+@using TTMS.Web.Models.Enums
+@{
+    ViewData["Title"] = "Tasks";
+    var projectId = (int)(ViewData["ProjectId"] ?? 0);
+    var rows = Model ?? new List<TaskListItem>();
+    var filter = (TaskFilterViewModel?)(ViewData["Filter"] ?? null);
+    var hasFilter = filter?.HasAnyFilter ?? false;
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Index">Projects</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Details" asp-route-id="@projectId">Project</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Tasks</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Tasks</h1>
+    <a asp-action="Create" asp-route-projectId="@projectId" class="btn btn-primary btn-sm">
+        <span aria-hidden="true">+</span> New task
+    </a>
+</div>
+
+@if (filter is not null)
+{
+    <partial name="_Filters" model="filter" />
+}
+
+@if (rows.Count == 0)
+{
+    <div class="alert alert-info">
+        @if (hasFilter)
+        {
+            <text>No tasks match the current filters. <a href="@Url.Action("Index", new { projectId })" class="alert-link">Clear filters</a> or try different criteria.</text>
+        }
+        else
+        {
+            <text>No tasks yet for this project. Create the first one to get started.</text>
+        }
+    </div>
+}
+else
+{
+    @if (hasFilter)
+    {
+        <p class="small text-muted mb-2">@rows.Count task(s) match the current filters.</p>
+    }
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Title</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                    <th>Assignee</th>
+                    <th class="text-end">Est.</th>
+                    <th class="text-end">Actual</th>
+                    <th class="text-end">Delta</th>
+                    <th class="text-end">Entries</th>
+                    <th>Due</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in rows)
+                {
+                    <tr>
+                        <td>
+                            <a asp-action="Details" asp-route-projectId="@projectId" asp-route-id="@t.Id" class="text-decoration-none">
+                                @t.Title
+                            </a>
+                        </td>
+                        <td><partial name="_TaskStatusBadge" model="t.Status" /></td>
+                        <td><partial name="_TaskPriorityBadge" model="t.Priority" /></td>
+                        <td class="text-muted small">@t.AssigneeName</td>
+                        <td class="text-end">@t.EstimatedHours.ToString("0.##")</td>
+                        <td class="text-end">@t.ActualHours.ToString("0.##")</td>
+                        <td class="text-end small">
+                            @if (t.Variance > 0)
+                            {
+                                <span class="text-danger fw-bold">+@t.Variance.ToString("0.##")</span>
+                            }
+                            else if (t.Variance < 0)
+                            {
+                                <span class="text-success">@t.Variance.ToString("0.##")</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">0</span>
+                            }
+                        </td>
+                        <td class="text-end">@t.TimeEntryCount</td>
+                        <td class="text-muted small">@t.DueDate?.ToString("yyyy-MM-dd")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

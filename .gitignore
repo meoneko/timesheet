@@ -1,0 +1,100 @@
+# ============================================================
+# TTMS (Task and Time Management System) .gitignore
+# ASP.NET Core 8 MVC + EF Core + Identity + Bootstrap 5
+# ============================================================
+
+# ---------- Build results ----------
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+publish/
+*.dll
+*.exe
+*.pdb
+*.cache
+*.deps.json
+*.runtimeconfig.json
+*.runtimeconfig.dev.json
+
+# ---------- Visual Studio ----------
+.vs/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.sln.docstates
+
+# ---------- VS Code / Rider / IDEs ----------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.code-workspace
+
+# ---------- ASP.NET Core ----------
+# Per-environment secrets and connection strings (never commit local/prod configs)
+appsettings.*.Local.json
+appsettings.*.Production.json
+appsettings.Development.json
+appsettings.Staging.json
+secrets.json
+
+# Data Protection keys (machine-specific, must NOT be committed)
+**/App_Data/DataProtectionKeys/
+
+# Local SQLite / dev databases (must NOT be committed)
+**/App_Data/*.db
+**/App_Data/*.db-shm
+**/App_Data/*.db-wal
+**/App_Data/*.mdf
+**/App_Data/*.ldf
+
+# Local file uploads (user data, never commit)
+uploads/
+wwwroot/uploads/
+
+# Logs
+*.log
+logs/
+Logs/
+
+# ---------- NuGet ----------
+*.nupkg
+*.snupkg
+.nuget/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ---------- Test results / coverage ----------
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+.coverage
+TestResult.xml
+
+# ---------- Node (in case frontend tooling is added later) ----------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# ---------- OS junk ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ---------- Misc ----------
+*.tmp
+*.bak
+*.orig
+
+# ---------- EF Core migrations ----------
+# Migrations are kept under source control (see CONTINUE.md spec).
+# Uncomment the next line ONLY if your team prefers generated migrations
+# to live outside the repo (e.g. for DB-compare workflows).
+# src/TTMS.Web/Migrations/

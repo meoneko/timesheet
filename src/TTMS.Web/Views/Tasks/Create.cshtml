@@ -1,0 +1,85 @@
+﻿@model TaskEditViewModel
+@using TTMS.Web.Models.Enums
+@{
+    ViewData["Title"] = "New task";
+    var projectId = Model.ProjectId;
+    var assignees = Model.AssignableUsers ?? new List<UserLookupItem>();
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Index">Projects</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Details" asp-route-id="@projectId">@Model.ProjectCode</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@projectId">Tasks</a></li>
+        <li class="breadcrumb-item active" aria-current="page">New</li>
+    </ol>
+</nav>
+
+<h1 class="h3 mb-3">New task</h1>
+
+<div class="row">
+    <div class="col-lg-9">
+        <form asp-action="Create" method="post">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+            <div class="mb-3">
+                <label asp-for="Title" class="form-label"></label>
+                <input asp-for="Title" class="form-control" autofocus />
+                <span asp-validation-for="Title" class="text-danger small"></span>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label asp-for="Status" class="form-label"></label>
+                    <select asp-for="Status" asp-items="Model.StatusOptions" class="form-select"></select>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label asp-for="Priority" class="form-label"></label>
+                    <select asp-for="Priority" asp-items="Model.PriorityOptions" class="form-select"></select>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label asp-for="AssigneeId" class="form-label">Assignee</label>
+                    <select asp-for="AssigneeId" class="form-select">
+                        <option value="">-- select --</option>
+                        @foreach (var u in assignees)
+                        {
+                            <option value="@u.Id">@u.Display</option>
+                        }
+                    </select>
+                    <span asp-validation-for="AssigneeId" class="text-danger small"></span>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label asp-for="EstimatedHours" class="form-label">Estimated hours</label>
+                    <input asp-for="EstimatedHours" class="form-control" type="number" min="0" step="0.25" />
+                    <span asp-validation-for="EstimatedHours" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label asp-for="DueDate" class="form-label"></label>
+                    <input asp-for="DueDate" class="form-control" type="date" />
+                    <span asp-validation-for="DueDate" class="text-danger small"></span>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="DescriptionHtml" class="form-label">Description</label>
+                <textarea asp-for="DescriptionHtml" data-tinymce="true" class="form-control" rows="10"></textarea>
+                <div class="form-text">Rich-text formatting is available.</div>
+                <span asp-validation-for="DescriptionHtml" class="text-danger small"></span>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Create task</button>
+                <a asp-action="Index" asp-route-projectId="@projectId" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <partial name="_TinyMcePartial" />
+}

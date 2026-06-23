@@ -1,0 +1,97 @@
+﻿@model GlobalSearchResults
+@using TTMS.Web.Models.ViewModels
+@{
+    var hasQuery = !string.IsNullOrWhiteSpace(Model.Query);
+}
+
+<h1 class="h3 mb-3">Search</h1>
+
+<form method="get" action="/Search" class="mb-4" role="search">
+    <div class="input-group">
+        <input type="search" name="q" value="@Model.Query" class="form-control" placeholder="Search tasks, descriptions, work logs..." autofocus autocomplete="off" />
+        <button type="submit" class="btn btn-primary">Search</button>
+    </div>
+    <div class="form-text">Searches task titles, descriptions and time-entry work logs. Empty query returns this page.</div>
+</form>
+
+@if (hasQuery)
+{
+    var totalHits = Model.TotalTaskCount + Model.TotalTimeEntryCount;
+    <p class="text-muted small mb-3">
+        @totalHits result(s) for <strong>"@Model.Query"</strong>
+        (@Model.TotalTaskCount task, @Model.TotalTimeEntryCount time entry).
+    </p>
+
+    @if (Model.Empty)
+    {
+        <div class="alert alert-info">No matches. Try a different keyword or check the spelling.</div>
+    }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <h2 class="h5">Tasks (@Model.TotalTaskCount)</h2>
+                @if (Model.Tasks.Count == 0)
+                {
+                    <p class="text-muted small">No task matches.</p>
+                }
+                else
+                {
+                    <div class="list-group">
+                        @foreach (var t in Model.Tasks)
+                        {
+                            <a asp-controller="Tasks" asp-action="Details" asp-route-projectId="@t.ProjectId" asp-route-id="@t.Id" class="list-group-item list-group-item-action">
+                                <div class="d-flex justify-content-between">
+                                    <strong>@t.Title</strong>
+                                    <partial name="_TaskStatusBadge" model="t.Status" />
+                                </div>
+                                <div class="small text-muted">
+                                    <span class="me-2">@t.ProjectCode - @t.AssigneeName</span>
+                                    <span class="me-2">Est. @t.EstimatedHours.ToString("0.##")h</span>
+                                    <span>Actual @t.ActualHours.ToString("0.##")h</span>
+                                </div>
+                            </a>
+                        }
+                    </div>
+                    @if (Model.TotalTaskCount > Model.Tasks.Count)
+                    {
+                        <p class="small text-muted mt-2 mb-0">Showing top @Model.Tasks.Count of @Model.TotalTaskCount. Refine the search to narrow down.</p>
+                    }
+                }
+            </div>
+            <div class="col-lg-6">
+                <h2 class="h5">Time entries (@Model.TotalTimeEntryCount)</h2>
+                @if (Model.TimeEntries.Count == 0)
+                {
+                    <p class="text-muted small">No time-entry matches.</p>
+                }
+                else
+                {
+                    <div class="list-group">
+                        @foreach (var e in Model.TimeEntries)
+                        {
+                            <a asp-controller="Tasks" asp-action="Details" asp-route-projectId="@e.ProjectId" asp-route-id="@e.TaskId" class="list-group-item list-group-item-action">
+                                <div class="d-flex justify-content-between">
+                                    <strong>@e.TaskTitle</strong>
+                                    <small class="text-muted">@e.WorkDate.ToString("yyyy-MM-dd")</small>
+                                </div>
+                                <div class="small text-muted">
+                                    <span class="me-2">@e.UserDisplayName - @e.DurationHours.ToString("0.##")h</span>
+                                    <span>@e.ProjectCode</span>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(e.WorkLogText))
+                                {
+                                    <div class="small mt-1">@e.WorkLogText</div>
+                                }
+                            </a>
+                        }
+                    </div>
+                    @if (Model.TotalTimeEntryCount > Model.TimeEntries.Count)
+                    {
+                        <p class="small text-muted mt-2 mb-0">Showing top @Model.TimeEntries.Count of @Model.TotalTimeEntryCount. Refine the search to narrow down.</p>
+                    }
+                }
+            </div>
+        </div>
+    }
+}

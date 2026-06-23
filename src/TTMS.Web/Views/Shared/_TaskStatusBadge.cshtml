@@ -1,0 +1,15 @@
+@using TTMS.Web.Models.Enums
+@model TaskItemStatus
+@{
+    var badgeClass = Model switch
+    {
+        TaskItemStatus.Todo => "bg-secondary",
+        TaskItemStatus.InProgress => "bg-primary",
+        TaskItemStatus.Pending => "bg-warning text-dark",
+        TaskItemStatus.Blocked => "bg-danger",
+        TaskItemStatus.Done => "bg-success",
+        TaskItemStatus.Cancelled => "bg-light text-dark border",
+        _ => "bg-light text-dark border"
+    };
+}
+<span class="badge @badgeClass">@Model</span>

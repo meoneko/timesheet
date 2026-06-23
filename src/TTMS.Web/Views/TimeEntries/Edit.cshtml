@@ -1,0 +1,57 @@
+﻿@model TimeEntryEditViewModel
+@{
+    ViewData["Title"] = $"Edit time entry";
+    var taskId = Model.TaskId;
+    var projectId = Model.ProjectId;
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Index">Projects</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Details" asp-route-id="@projectId">@Model.ProjectCode</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@projectId">Tasks</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Tasks" asp-action="Details" asp-route-projectId="@projectId" asp-route-id="@taskId">@Model.TaskTitle</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Edit time</li>
+    </ol>
+</nav>
+
+<h1 class="h3 mb-3">Edit time entry</h1>
+
+<p class="text-muted">Logged by <strong>@Model.UserDisplayName</strong>.</p>
+
+<form asp-action="Edit" asp-route-id="@Model.Id" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <input type="hidden" asp-for="TaskId" />
+    <input type="hidden" asp-for="UserId" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label asp-for="WorkDate" class="form-label"></label>
+            <input asp-for="WorkDate" class="form-control" type="date" />
+            <span asp-validation-for="WorkDate" class="text-danger small"></span>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label asp-for="DurationHours" class="form-label">Duration (hours)</label>
+            <input asp-for="DurationHours" class="form-control" type="number" step="0.25" min="0.25" max="24" />
+            <span asp-validation-for="DurationHours" class="text-danger small"></span>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="WorkLogHtml" class="form-label">Work log</label>
+        <textarea asp-for="WorkLogHtml" data-tinymce="true" class="form-control" rows="8"></textarea>
+        <span asp-validation-for="WorkLogHtml" class="text-danger small"></span>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Save changes</button>
+        <a asp-controller="Tasks" asp-action="Details" asp-route-projectId="@projectId" asp-route-id="@taskId" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <partial name="_TinyMcePartial" />
+}

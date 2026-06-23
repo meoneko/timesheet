@@ -1,0 +1,145 @@
+@using System.Security.Claims
+@using Microsoft.Extensions.Caching.Memory
+@using TTMS.Web.Data
+@using TTMS.Web.Models.ViewModels
+@using TTMS.Web.Services
+@inject IProjectService Projects
+@inject IMemoryCache Cache
+@{
+    var isAuthenticated = User.Identity?.IsAuthenticated == true;
+    var userId = isAuthenticated ? (User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty) : string.Empty;
+    var isAdmin = isAuthenticated && User.IsInRole(DbSeeder.AdminRole);
+
+    // Current project = first non-null match from the URL. We don't store any state; this is
+    // derived purely from the route so shared links / bookmarks highlight the right row.
+    int? currentProjectId = null;
+    var routeProjectId = ViewContext.RouteData.Values["projectId"];
+    if (routeProjectId != null && int.TryParse(routeProjectId.ToString(), out var pidParsed)) currentProjectId = pidParsed;
+
+    List<ProjectListItem> visibleProjects = new();
+    if (isAuthenticated && !string.IsNullOrEmpty(userId))
+    {
+        // Per-user cache, 60s TTL. The list rarely changes for a given user (only when they
+        // are added/removed from a project), and staleness of up to a minute is acceptable
+        // for a navigation helper. If we add invalidation later, key by userId + project
+        // membership version.
+        var cacheKey = $"sidebar:projects:{userId}";
+        if (!Cache.TryGetValue(cacheKey, out List<ProjectListItem>? cached) || cached is null)
+        {
+            cached = await Projects.ListVisibleProjectsAsync(userId);
+            Cache.Set(cacheKey, cached, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60),
+                Size = 1, // simple per-user cache; we only need to bound total entries via MemoryCacheOptions.SizeLimit
+            });
+        }
+        visibleProjects = cached;
+    }
+}
+
+@if (isAuthenticated)
+{
+    <div class="ttms-sidebar-header d-flex d-md-none align-items-center justify-content-between px-3 py-2 border-bottom">
+        <span class="fw-semibold">Menu</span>
+        <button type="button" class="btn-close ttms-sidebar-close" aria-label="Close menu"></button>
+    </div>
+
+    <nav class="ttms-sidebar-nav" aria-label="Primary">
+        <form class="ttms-sidebar-search px-2 mb-2" method="get" action="/Search" role="search">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text bg-white" aria-hidden="true"><i class="bi bi-search"></i></span>
+                <input id="sidebarSearchInput" class="form-control" type="search" name="q" placeholder="Search..." aria-label="Search" autocomplete="off" />
+            </div>
+        </form>
+
+        <ul class="nav flex-column ttms-side-nav">
+            <li class="nav-item">
+                <a class="nav-link" asp-controller="Dashboard" asp-action="UserDashboard">
+                        <i class="bi bi-speedometer2 ttms-side-icon" aria-hidden="true"></i>
+                    <span>My Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" asp-controller="Reports" asp-action="MyTimesheet">
+                        <i class="bi bi-clock-history ttms-side-icon" aria-hidden="true"></i>
+                    <span>My Timesheet</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="ttms-side-section-label px-2 mt-3 mb-1 text-uppercase small text-muted">Projects</div>
+        <ul id="ttmsRecentProjects" class="nav flex-column ttms-side-nav ttms-side-recent" hidden>
+            <li class="ttms-side-recent-empty text-muted small px-3" hidden>No recent projects.</li>
+        </ul>
+        <ul class="nav flex-column ttms-side-nav ttms-side-projects" aria-label="Projects you belong to">
+            @if (visibleProjects.Count == 0)
+            {
+                <li class="text-muted small px-3 py-1">No projects yet.</li>
+            }
+            else
+            {
+                @foreach (var p in visibleProjects)
+                {
+                    var isCurrent = currentProjectId.HasValue && currentProjectId.Value == p.Id;
+                    var activeClass = isCurrent ? "active" : string.Empty;
+                    <li class="nav-item" data-project-id="@p.Id" data-project-code="@p.Code" data-project-name="@p.Name">
+                        <a class="nav-link @activeClass"
+                           asp-controller="Projects" asp-action="Details" asp-route-id="@p.Id"
+                           title="@p.Code — @p.Name">
+                            <span class="badge bg-light text-dark border ttms-side-code">@p.Code</span>
+                            <span class="text-truncate">@p.Name</span>
+                            @if (p.Status == TTMS.Web.Models.Enums.ProjectStatus.Paused
+                                || p.Status == TTMS.Web.Models.Enums.ProjectStatus.Completed
+                                || p.Status == TTMS.Web.Models.Enums.ProjectStatus.Archived)
+                            {
+                                <span class="badge bg-secondary ms-auto ttms-side-status" title="@p.Status">@p.Status.ToString().Substring(0, 1)</span>
+                            }
+                        </a>
+                    </li>
+                }
+            }
+        </ul>
+        <div class="px-2 mt-1">
+            <a class="small text-muted text-decoration-none" asp-controller="Projects" asp-action="Index">Browse all projects &rarr;</a>
+        </div>
+
+        @if (isAdmin)
+        {
+            <div class="ttms-side-section-label px-2 mt-3 mb-1 text-uppercase small text-muted">Admin</div>
+            <ul class="nav flex-column ttms-side-nav">
+                <li class="nav-item">
+                    <a class="nav-link" asp-controller="Dashboard" asp-action="Admin">
+                        <i class="bi bi-shield-lock ttms-side-icon" aria-hidden="true"></i>
+                        <span>Admin Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" asp-controller="Reports" asp-action="TeamTimesheet">
+                        <i class="bi bi-people ttms-side-icon" aria-hidden="true"></i>
+                        <span>Team Timesheet</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" asp-controller="Reports" asp-action="ProjectSummary">
+                        <i class="bi bi-bar-chart ttms-side-icon" aria-hidden="true"></i>
+                        <span>Project Summary</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" asp-controller="Reports" asp-action="UserSummary">
+                        <i class="bi bi-person ttms-side-icon" aria-hidden="true"></i>
+                        <span>User Summary</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" asp-controller="Trash" asp-action="Index">
+                        <i class="bi bi-trash ttms-side-icon" aria-hidden="true"></i>
+                        <span>Recycle Bin</span>
+                    </a>
+                </li>
+            </ul>
+        }
+    </nav>
+}
+
+

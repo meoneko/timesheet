@@ -1,0 +1,43 @@
+@*
+    TinyMCE community edition (MIT / LGPLv2+ for self-hosted).
+    Loaded from the official CDN with no API key (community plugins only).
+    Initialize via tinyMCE.init on any <textarea data-tinymce="true"> ... </textarea>.
+    Per spec section 5 / 7, content is sanitized server-side by HtmlSanitizationService
+    on save, but TinyMCE also has its own basic built-in paste-word cleanup.
+*@
+<script src="https://cdn.jsdelivr.net/npm/tinymce@6.8.5/tinymce.min.js" referrerpolicy="origin"></script>
+<script>
+    (function () {
+        function initEditors(root) {
+            var scope = root || document;
+            var nodes = scope.querySelectorAll('textarea[data-tinymce="true"]:not(.tinymce-initialized)');
+            if (!nodes.length) return;
+            if (typeof tinymce === 'undefined') return; // safety - should not happen
+            tinymce.init({
+                selector: 'textarea[data-tinymce="true"]:not(.tinymce-initialized)',
+                height: 320,
+                menubar: false,
+                plugins: 'link lists code table searchreplace wordcount autolink paste advlist',
+                toolbar: 'undo redo | styles | bold italic underline | bullist numlist | link table | code searchreplace',
+                branding: false,
+                promotion: false,
+                statusbar: true,
+                elementpath: false,
+                resize: true,
+                browser_spellcheck: true,
+                paste_as_text: false,
+                advlist_bullet_styles: 'disc,circle,square',
+                advlist_number_styles: 'decimal,lower-alpha,upper-alpha',
+                content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; }',
+                setup: function (editor) {
+                    editor.on('init', function () {
+                        editor.targetElm.classList.add('tinymce-initialized');
+                    });
+                }
+            });
+        }
+        document.addEventListener('DOMContentLoaded', function () { initEditors(); });
+        // Expose for partial re-init scenarios (e.g. dialogs that swap content).
+        window.ttmsTinyMceInit = initEditors;
+    })();
+</script>

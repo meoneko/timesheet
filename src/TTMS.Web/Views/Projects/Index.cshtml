@@ -1,0 +1,87 @@
+@model List<ProjectListItem>
+@{
+    ViewData["Title"] = "Projects";
+    var isAdmin = (bool)(ViewData["IsAdmin"] ?? false);
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Projects</h1>
+    <a asp-action="Create" class="btn btn-primary btn-sm">
+        <span aria-hidden="true">+</span> New project
+    </a>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">
+        You don't have access to any projects yet.
+        @if (isAdmin)
+        {
+            <text>Create the first project to get started.</text>
+        }
+        else
+        {
+            <text>Ask a project Owner to add you as a member.</text>
+        }
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th class="text-end">Members</th>
+                    <th class="text-end">Open tasks</th>
+                    <th>Your role</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in Model)
+                {
+                    var roleBadgeClass = p.ViewerRole switch
+                    {
+                        TTMS.Web.Models.Enums.ProjectMemberRole.Owner => "bg-success",
+                        TTMS.Web.Models.Enums.ProjectMemberRole.Member => "bg-primary",
+                        TTMS.Web.Models.Enums.ProjectMemberRole.Viewer => "bg-secondary",
+                        _ => "bg-light text-dark border"
+                    };
+                    var statusBadgeClass = p.Status switch
+                    {
+                        TTMS.Web.Models.Enums.ProjectStatus.Active => "bg-success",
+                        TTMS.Web.Models.Enums.ProjectStatus.Paused => "bg-warning text-dark",
+                        TTMS.Web.Models.Enums.ProjectStatus.Completed => "bg-info text-dark",
+                        TTMS.Web.Models.Enums.ProjectStatus.Archived => "bg-secondary",
+                        _ => "bg-light text-dark border"
+                    };
+                    <tr>
+                        <td><span class="badge bg-light text-dark border">@p.Code</span></td>
+                        <td>
+                            <a asp-action="Details" asp-route-id="@p.Id" class="text-decoration-none">@p.Name</a>
+                        </td>
+                        <td><span class="badge @statusBadgeClass">@p.Status</span></td>
+                        <td class="text-end">@p.MemberCount</td>
+                        <td class="text-end">@p.OpenTaskCount</td>
+                        <td>
+                            @if (p.ViewerRole.HasValue)
+                            {
+                                <span class="badge @roleBadgeClass">@p.ViewerRole</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted small">—</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <a asp-action="Details" asp-route-id="@p.Id" class="btn btn-sm btn-outline-secondary">Open</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

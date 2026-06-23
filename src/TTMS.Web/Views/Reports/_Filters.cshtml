@@ -1,0 +1,48 @@
+@model ReportsFilterViewModel
+@{
+    var formAction = (string?)ViewData["FormAction"] ?? "MyTimesheet";
+    var exportAction = (string?)ViewData["ExportAction"] ?? "ExportMyTimesheet";
+    var showUser = (bool)(ViewData["ShowUserDropdown"] ?? false);
+    var showProject = (bool)(ViewData["ShowProjectDropdown"] ?? true);
+}
+
+<form method="get" asp-controller="Reports" asp-action="@formAction" class="row g-2 align-items-end mb-3">
+    <div class="col-sm-3">
+        <label class="form-label small mb-1" for="FromDate">From</label>
+        <input type="date" class="form-control form-control-sm" id="FromDate" name="FromDate" value="@(Model.FromDate?.ToString("yyyy-MM-dd"))" />
+    </div>
+    <div class="col-sm-3">
+        <label class="form-label small mb-1" for="ToDate">To</label>
+        <input type="date" class="form-control form-control-sm" id="ToDate" name="ToDate" value="@(Model.ToDate?.ToString("yyyy-MM-dd"))" />
+    </div>
+
+    @if (showProject)
+    {
+        <div class="col-sm-3">
+            <label class="form-label small mb-1" for="ProjectId">Project</label>
+            <select class="form-select form-select-sm" id="ProjectId" name="ProjectId" asp-items="Model.Projects">
+                <option value="">— All projects —</option>
+            </select>
+        </div>
+    }
+
+    @if (showUser)
+    {
+        <div class="col-sm-3">
+            <label class="form-label small mb-1" for="UserId">User</label>
+            <select class="form-select form-select-sm" id="UserId" name="UserId" asp-items="Model.Users">
+                <option value="">— All users —</option>
+            </select>
+        </div>
+    }
+
+    <div class="col-sm-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+        <a class="btn btn-outline-secondary btn-sm"
+           asp-controller="Reports" asp-action="@exportAction"
+           asp-route-FromDate="@Model.FromDate?.ToString("yyyy-MM-dd")"
+           asp-route-ToDate="@Model.ToDate?.ToString("yyyy-MM-dd")"
+           asp-route-ProjectId="@Model.ProjectId"
+           asp-route-UserId="@Model.UserId">Export Excel</a>
+    </div>
+</form>

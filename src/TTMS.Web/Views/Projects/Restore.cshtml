@@ -1,0 +1,62 @@
+@model TTMS.Web.Models.ViewModels.ProjectDetailViewModel
+@{
+    ViewData["Title"] = $"Restore {Model.Code}";
+    var deletedAt = Model.RecentHistory
+        .Where(h => h.Event == TTMS.Web.Models.Enums.HistoryEvent.Deleted)
+        .OrderByDescending(h => h.ChangedAt)
+        .Select(h => (DateTime?)h.ChangedAt)
+        .FirstOrDefault();
+    var deletedBy = Model.RecentHistory
+        .Where(h => h.Event == TTMS.Web.Models.Enums.HistoryEvent.Deleted)
+        .OrderByDescending(h => h.ChangedAt)
+        .Select(h => h.ChangedByName)
+        .FirstOrDefault() ?? "—";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a asp-controller="Trash" asp-action="Index">Recycle Bin</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Restore project</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="alert alert-info">
+            <strong>Restore this project?</strong>
+            Soft-deleted records are normally hidden from the rest of the app. Restoring
+            brings the project back to its previous state and writes a <em>Restored</em>
+            row to its audit history.
+        </div>
+
+        <h1 class="h4 mb-3">
+            <span class="badge bg-light text-dark border me-2">@Model.Code</span>
+            @Model.Name
+        </h1>
+
+        <dl class="row small">
+            <dt class="col-sm-3">Status</dt>
+            <dd class="col-sm-9">@Model.Status</dd>
+            <dt class="col-sm-3">Members</dt>
+            <dd class="col-sm-9">@Model.Members.Count</dd>
+            <dt class="col-sm-3">Created by</dt>
+            <dd class="col-sm-9">@Model.CreatedByName on @Model.CreatedAt.ToString("yyyy-MM-dd")</dd>
+            @if (deletedAt.HasValue)
+            {
+                <dt class="col-sm-3">Deleted by</dt>
+                <dd class="col-sm-9">@deletedBy on @deletedAt.Value.ToString("yyyy-MM-dd HH:mm") UTC</dd>
+            }
+        </dl>
+
+        <form asp-action="RestoreConfirmed" asp-route-id="@Model.Id" method="post">
+            @Html.AntiForgeryToken()
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-success"
+                        onclick="return confirm('Restore this project? It will reappear in project lists.');">
+                    Yes, restore it
+                </button>
+                <a asp-controller="Trash" asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>

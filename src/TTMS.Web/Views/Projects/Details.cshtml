@@ -1,0 +1,165 @@
+@model ProjectDetailViewModel
+@using TTMS.Web.Models.Enums
+@{
+    ViewData["Title"] = $"{Model.Code} — {Model.Name}";
+    var canManage = (bool)(ViewData["CanManage"] ?? false);
+    var statusBadgeClass = Model.Status switch
+    {
+        ProjectStatus.Active => "bg-success",
+        ProjectStatus.Paused => "bg-warning text-dark",
+        ProjectStatus.Completed => "bg-info text-dark",
+        ProjectStatus.Archived => "bg-secondary",
+        _ => "bg-light text-dark border"
+    };
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a asp-action="Index">Projects</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@Model.Code</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h1 class="h3 mb-1">
+            <span class="badge bg-light text-dark border me-2 align-middle">@Model.Code</span>
+            @Model.Name
+        </h1>
+        <div class="text-muted small">
+            <span class="badge @statusBadgeClass me-2">@Model.Status</span>
+            @Model.OpenTaskCount of @Model.TotalTaskCount task(s) open
+            · Created @Model.CreatedAt.ToString("yyyy-MM-dd") by @Model.CreatedByName
+            @if (Model.ViewerRole.HasValue)
+            {
+                <span class="ms-2 text-muted">Your role: <strong>@Model.ViewerRole</strong></span>
+            }
+        </div>
+    </div>
+    @if (canManage)
+    {
+        <div class="btn-group btn-group-sm">
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Edit</a>
+            <a asp-action="Members" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Members</a>
+            <a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@Model.Id" class="btn btn-outline-primary">Tasks</a>
+            <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-outline-danger">Delete</a>
+        </div>
+    }
+    else
+    {
+        <a asp-action="Members" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-secondary">Members</a>
+        <a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@Model.Id" class="btn btn-sm btn-outline-primary ms-1">Tasks</a>
+    }
+</div>
+
+<ul class="nav nav-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">Overview</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="members-tab" data-bs-toggle="tab" data-bs-target="#members" type="button" role="tab">Members (@Model.Members.Count)</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">History</button>
+    </li>
+</ul>
+
+<div class="tab-content border border-top-0 p-3 bg-white">
+    <div class="tab-pane fade show active" id="overview" role="tabpanel">
+        <h6 class="text-uppercase text-muted small">Description</h6>
+        @if (string.IsNullOrWhiteSpace(Model.DescriptionHtml))
+        {
+            <p class="text-muted"><em>No description yet.</em></p>
+        }
+        else
+        {
+            <div class="project-description">@Html.Raw(Model.DescriptionHtml)</div>
+        }
+    </div>
+
+    <div class="tab-pane fade" id="members" role="tabpanel">
+        @if (!Model.Members.Any())
+        {
+            <p class="text-muted"><em>No members.</em></p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Joined</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in Model.Members)
+                        {
+                            var roleBadgeClass = m.Role switch
+                            {
+                                ProjectMemberRole.Owner => "bg-success",
+                                ProjectMemberRole.Member => "bg-primary",
+                                ProjectMemberRole.Viewer => "bg-secondary",
+                                _ => "bg-light text-dark border"
+                            };
+                            <tr>
+                                <td>
+                                    @m.DisplayName
+                                    @if (m.IsCurrentUser)
+                                    {
+                                        <span class="badge bg-info text-dark ms-1">you</span>
+                                    }
+                                </td>
+                                <td class="text-muted small">@m.Email</td>
+                                <td><span class="badge @roleBadgeClass">@m.Role</span></td>
+                                <td class="text-muted small">@m.JoinedAt.ToString("yyyy-MM-dd")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-2">
+                <a asp-action="Members" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-secondary">
+                    Manage members
+                </a>
+            </div>
+        }
+    </div>
+
+    <div class="tab-pane fade" id="history" role="tabpanel">
+        @if (!Model.RecentHistory.Any())
+        {
+            <p class="text-muted"><em>No history yet.</em></p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>When</th>
+                            <th>Who</th>
+                            <th>Event</th>
+                            <th>Old</th>
+                            <th>New</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var h in Model.RecentHistory)
+                        {
+                            <tr>
+                                <td class="text-muted small">@h.ChangedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>@h.ChangedByName</td>
+                                <td><span class="badge bg-light text-dark border">@h.Event</span></td>
+                                <td class="text-muted small">@h.OldValue</td>
+                                <td class="text-muted small">@h.NewValue</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

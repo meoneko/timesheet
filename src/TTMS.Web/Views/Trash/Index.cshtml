@@ -1,0 +1,278 @@
+@model TTMS.Web.Models.ViewModels.TrashPageViewModel
+@using TTMS.Web.Models.Enums
+@{
+    ViewData["Title"] = "Recycle Bin";
+    var sections = Model.Filter.Sections ?? new List<TrashSection>();
+    var showProjects = sections.Contains(TrashSection.Projects);
+    var showTasks = sections.Contains(TrashSection.Tasks);
+    var showEntries = sections.Contains(TrashSection.TimeEntries);
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index">Home</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Recycle Bin</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Recycle Bin</h1>
+    <span class="text-muted small">Soft-deleted records can be restored from here. Hard delete is intentionally not exposed.</span>
+</div>
+
+@* ====================== Filter form ====================== *@
+<form method="get" class="card card-body bg-light mb-4">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label small mb-1" for="filterText">Search</label>
+            <input id="filterText" name="Text" type="search" class="form-control form-control-sm"
+                   value="@Model.Filter.Text" placeholder="Name, code, title, work log…" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small mb-1" for="filterProject">Project</label>
+            <select id="filterProject" name="ProjectId" class="form-select form-select-sm" asp-items="Model.Filter.ProjectOptions">
+                <option value="">Any project</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small mb-1" for="filterDeletedBy">Deleted by</label>
+            <input id="filterDeletedBy" name="DeletedById" type="text" class="form-control form-control-sm"
+                   value="@Model.Filter.DeletedById" placeholder="user id" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small mb-1" for="filterFrom">Deleted from</label>
+            <input id="filterFrom" name="DeletedFrom" type="date" class="form-control form-control-sm"
+                   value="@(Model.Filter.DeletedFrom?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small mb-1" for="filterTo">Deleted to</label>
+            <input id="filterTo" name="DeletedTo" type="date" class="form-control form-control-sm"
+                   value="@(Model.Filter.DeletedTo?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <div class="col-md-1 d-flex gap-1">
+            <button type="submit" class="btn btn-sm btn-primary flex-grow-1">Apply</button>
+            <a asp-action="Index" class="btn btn-sm btn-outline-secondary">Clear</a>
+        </div>
+    </div>
+    @* Re-echo the section toggles so they survive a round-trip; users that aren't admins
+        still get the Projects section hidden on the server, so we don't expose it here. *@
+    @if (Model.CanViewProjectsSection)
+    {
+        <div class="row g-2 mt-2 small text-muted">
+            <div class="col-auto"><strong>Sections:</strong></div>
+            <div class="col-auto">
+                <span class="badge bg-light text-dark border">Projects</span>
+            </div>
+            <div class="col-auto">
+                <span class="badge bg-light text-dark border">Tasks</span>
+            </div>
+            <div class="col-auto">
+                <span class="badge bg-light text-dark border">Time entries</span>
+            </div>
+        </div>
+    }
+</form>
+
+@* ====================== Summary cards ====================== *@
+<div class="row g-2 mb-4">
+    @if (Model.CanViewProjectsSection)
+    {
+        <div class="col-md-4">
+            <div class="card @(Model.TotalProjects > 0 ? "border-warning" : "")">
+                <div class="card-body py-2">
+                    <div class="text-muted small">Trashed projects</div>
+                    <div class="h4 mb-0">@Model.TotalProjects</div>
+                </div>
+            </div>
+        </div>
+    }
+    <div class="col-md-4">
+        <div class="card @(Model.TotalTasks > 0 ? "border-warning" : "")">
+            <div class="card-body py-2">
+                <div class="text-muted small">Trashed tasks</div>
+                <div class="h4 mb-0">@Model.TotalTasks</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card @(Model.TotalTimeEntries > 0 ? "border-warning" : "")">
+            <div class="card-body py-2">
+                <div class="text-muted small">Trashed time entries</div>
+                <div class="h4 mb-0">@Model.TotalTimeEntries</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* ====================== Projects section ====================== *@
+@if (showProjects && Model.CanViewProjectsSection)
+{
+    <h2 class="h5 mt-4">Projects <span class="badge bg-secondary">@Model.Projects.Count</span></h2>
+    @if (!Model.Projects.Any())
+    {
+        <p class="text-muted small">No soft-deleted projects.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Code</th>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th class="text-end">Members</th>
+                        <th>Deleted</th>
+                        <th>By</th>
+                        <th class="text-end"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Model.Projects)
+                    {
+                        <tr>
+                            <td><span class="badge bg-light text-dark border">@p.Code</span></td>
+                            <td>@p.Name</td>
+                            <td><span class="badge bg-secondary">@p.Status</span></td>
+                            <td class="text-end">@p.MemberCount</td>
+                            <td><time datetime="@p.DeletedAt.ToString("o")">@p.DeletedAt.ToString("yyyy-MM-dd HH:mm") UTC</time></td>
+                            <td>@p.DeletedByName</td>
+                            <td class="text-end">
+                                @if (p.ViewerCanRestore)
+                                {
+                                    <a asp-action="Restore" asp-controller="Projects" asp-route-id="@p.Id"
+                                       class="btn btn-sm btn-outline-success">Restore…</a>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small" title="@p.RestoreBlockedReason">Not allowed</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@* ====================== Tasks section ====================== *@
+@if (showTasks)
+{
+    <h2 class="h5 mt-4">Tasks <span class="badge bg-secondary">@Model.Tasks.Count</span></h2>
+    @if (!Model.Tasks.Any())
+    {
+        <p class="text-muted small">No soft-deleted tasks visible to you.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Project</th>
+                        <th>Title</th>
+                        <th>Status</th>
+                        <th>Priority</th>
+                        <th class="text-end">Entries</th>
+                        <th>Deleted</th>
+                        <th>By</th>
+                        <th class="text-end"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in Model.Tasks)
+                    {
+                        <tr>
+                            <td><span class="badge bg-light text-dark border">@t.ProjectCode</span></td>
+                            <td>@t.Title</td>
+                            <td><span class="badge bg-secondary">@t.Status</span></td>
+                            <td><span class="badge bg-light text-dark border">@t.Priority</span></td>
+                            <td class="text-end">@t.TimeEntryCount</td>
+                            <td><time datetime="@t.DeletedAt.ToString("o")">@t.DeletedAt.ToString("yyyy-MM-dd HH:mm") UTC</time></td>
+                            <td>@t.DeletedByName</td>
+                            <td class="text-end">
+                                @if (t.ViewerCanRestore)
+                                {
+                                    <form asp-action="RestoreTask" asp-route-id="@t.Id" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-outline-success"
+                                                onclick="return confirm('Restore this task?');">
+                                            Restore
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small" title="@t.RestoreBlockedReason">Not allowed</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@* ====================== TimeEntries section ====================== *@
+@if (showEntries)
+{
+    <h2 class="h5 mt-4">Time entries <span class="badge bg-secondary">@Model.TimeEntries.Count</span></h2>
+    @if (!Model.TimeEntries.Any())
+    {
+        <p class="text-muted small">No soft-deleted time entries visible to you.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Project / Task</th>
+                        <th>Author</th>
+                        <th>Date</th>
+                        <th class="text-end">Hours</th>
+                        <th>Preview</th>
+                        <th>Deleted</th>
+                        <th>By</th>
+                        <th class="text-end"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var e in Model.TimeEntries)
+                    {
+                        <tr>
+                            <td>
+                                <span class="badge bg-light text-dark border me-1">@e.ProjectCode</span>
+                                <span class="small">@e.TaskTitle</span>
+                            </td>
+                            <td>@e.AuthorName</td>
+                            <td>@e.WorkDate.ToString("yyyy-MM-dd")</td>
+                            <td class="text-end">@e.DurationHours.ToString("0.##")h</td>
+                            <td class="text-muted small text-truncate" style="max-width: 240px;">@e.WorkLogPreview</td>
+                            <td><time datetime="@e.DeletedAt.ToString("o")">@e.DeletedAt.ToString("yyyy-MM-dd HH:mm") UTC</time></td>
+                            <td>@e.DeletedByName</td>
+                            <td class="text-end">
+                                @if (e.ViewerCanRestore)
+                                {
+                                    <form asp-action="RestoreTimeEntry" asp-route-id="@e.Id" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-outline-success"
+                                                onclick="return confirm('Restore this time entry?');">
+                                            Restore
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small" title="@e.RestoreBlockedReason">Not allowed</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}

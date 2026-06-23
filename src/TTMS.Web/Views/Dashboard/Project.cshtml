@@ -1,0 +1,280 @@
+﻿@model TTMS.Web.Models.ViewModels.ProjectDashboardViewModel
+@using TTMS.Web.Models.Enums
+@{
+    ViewData["Title"] = $"{Model.ProjectCode} Dashboard";
+
+    string StatusBadge(TaskItemStatus s) => s switch
+    {
+        TaskItemStatus.Todo => "bg-secondary",
+        TaskItemStatus.InProgress => "bg-primary",
+        TaskItemStatus.Pending => "bg-warning text-dark",
+        TaskItemStatus.Blocked => "bg-danger",
+        TaskItemStatus.Done => "bg-success",
+        TaskItemStatus.Cancelled => "bg-dark",
+        _ => "bg-light text-dark border"
+    };
+
+    string StatusLabel(TaskItemStatus s) => s switch
+    {
+        TaskItemStatus.Todo => "To Do",
+        TaskItemStatus.InProgress => "In Progress",
+        TaskItemStatus.Pending => "Pending",
+        TaskItemStatus.Blocked => "Blocked",
+        TaskItemStatus.Done => "Done",
+        TaskItemStatus.Cancelled => "Cancelled",
+        _ => s.ToString()
+    };
+
+    string ProjectStatusBadge(ProjectStatus s) => s switch
+    {
+        ProjectStatus.Active => "bg-success",
+        ProjectStatus.Paused => "bg-warning text-dark",
+        ProjectStatus.Completed => "bg-info text-dark",
+        ProjectStatus.Archived => "bg-secondary",
+        _ => "bg-light text-dark border"
+    };
+
+    string MemberRoleBadge(ProjectMemberRole r) => r switch
+    {
+        ProjectMemberRole.Owner => "bg-success",
+        ProjectMemberRole.Member => "bg-primary",
+        ProjectMemberRole.Viewer => "bg-secondary",
+        _ => "bg-light text-dark border"
+    };
+
+    // Variance: positive = over budget (bad), negative = under (good)
+    var overBudget = Model.Variance > 0;
+    var varianceClass = Model.EstimatedHours == 0
+        ? "text-muted"
+        : (overBudget ? "text-danger" : "text-success");
+    var varianceSign = Model.Variance >= 0 ? "+" : "";
+    var progressPct = Model.VariancePct > 200 ? 200 : Model.VariancePct;
+    var progressClass = Model.VariancePct < 80 ? "bg-success"
+        : Model.VariancePct <= 100 ? "bg-warning"
+        : "bg-danger";
+}
+
+<nav aria-label="breadcrumb" class="small mb-3">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Index">Projects</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Details" asp-route-id="@Model.ProjectId">@Model.ProjectCode</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h1 class="h3 mb-1">
+            <span class="badge bg-light text-dark border me-2 align-middle">@Model.ProjectCode</span>
+            @Model.ProjectName
+        </h1>
+        <div class="text-muted small">
+            <span class="badge @ProjectStatusBadge(Model.Status) me-2">@Model.Status</span>
+            @Model.TotalTaskCount total task(s)
+            - @Model.TotalHours.ToString("0.#")h logged
+        </div>
+    </div>
+    <div class="btn-group btn-group-sm">
+        <a asp-controller="Projects" asp-action="Details" asp-route-id="@Model.ProjectId" class="btn btn-outline-secondary">Project details</a>
+        @if (Model.CanManage)
+        {
+            <a asp-controller="Projects" asp-action="Edit" asp-route-id="@Model.ProjectId" class="btn btn-outline-secondary">Edit</a>
+            <a asp-controller="Projects" asp-action="Members" asp-route-id="@Model.ProjectId" class="btn btn-outline-secondary">Members</a>
+        }
+        <a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@Model.ProjectId" class="btn btn-outline-primary">All tasks</a>
+    </div>
+</div>
+
+<!-- ============ STATS CARD (12.3 - Estimate vs Actual) ============ -->
+<div class="card border-0 shadow-sm mb-4 @progressClass.Replace("bg-", "border-").Replace("-", " border-3 ")">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-baseline mb-2">
+            <h6 class="text-uppercase text-muted small mb-0">Estimate vs Actual</h6>
+            @if (Model.EstimatedHours == 0)
+            {
+                <span class="badge bg-light text-dark border">no estimates</span>
+            }
+            else
+            {
+                <span class="badge @progressClass">@Model.VariancePct% of estimate</span>
+            }
+        </div>
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <div class="text-muted small text-uppercase">Estimated</div>
+                <div class="h3 mb-0">@Model.EstimatedHours.ToString("0.#")<small class="fs-6 text-muted">h</small></div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted small text-uppercase">Actual</div>
+                <div class="h3 mb-0">@Model.TotalHours.ToString("0.#")<small class="fs-6 text-muted">h</small></div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted small text-uppercase">Variance</div>
+                <div class="h3 mb-0 @varianceClass">@varianceSign@Model.Variance.ToString("0.#")<small class="fs-6 text-muted">h</small></div>
+                @if (overBudget && Model.EstimatedHours > 0)
+                {
+                    <div class="small text-danger">Over budget</div>
+                }
+                else if (Model.EstimatedHours > 0)
+                {
+                    <div class="small text-success">Under budget</div>
+                }
+            </div>
+            <div class="col-md-3">
+                @if (Model.EstimatedHours > 0)
+                {
+                    <div class="progress" style="height: 24px;" title="@Model.VariancePct% of estimate">
+                        <div class="progress-bar @progressClass" role="progressbar" style="width: @progressPct%" aria-valuenow="@Model.VariancePct" aria-valuemin="0" aria-valuemax="200">@Model.VariancePct%</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============ KPI CARDS (12.2 - Project Dashboard) ============ -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small text-uppercase">Total Tasks</div>
+                <div class="display-6 fw-semibold">@Model.TotalTaskCount</div>
+                <div class="text-muted small">all statuses</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@Model.ProjectId" asp-route-status="Todo" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100 bg-secondary bg-opacity-10">
+                <div class="card-body">
+                    <div class="text-muted small text-uppercase">Open</div>
+                    <div class="display-6 fw-semibold text-secondary">@Model.OpenTaskCount</div>
+                    <div class="text-muted small">to-do</div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@Model.ProjectId" asp-route-status="Pending" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100 bg-warning bg-opacity-10">
+                <div class="card-body">
+                    <div class="text-muted small text-uppercase">Pending</div>
+                    <div class="display-6 fw-semibold text-warning">@Model.PendingTaskCount</div>
+                    <div class="text-muted small">waiting</div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@Model.ProjectId" asp-route-status="Blocked" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100 bg-danger bg-opacity-10">
+                <div class="card-body">
+                    <div class="text-muted small text-uppercase">Blocked</div>
+                    <div class="display-6 fw-semibold text-danger">@Model.BlockedTaskCount</div>
+                    <div class="text-muted small">needs help</div>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- ============ TWO-COLUMN: Status Breakdown + Member Load ============ -->
+<div class="row g-3 mb-4">
+    <!-- Tasks by status (horizontal bars) -->
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white"><h6 class="mb-0">Tasks by Status</h6></div>
+            <div class="card-body">
+                @if (!Model.StatusBreakdown.Any(s => s.Count > 0))
+                {
+                    <div class="text-center text-muted py-3">No tasks yet.</div>
+                }
+                else
+                {
+                    @foreach (var s in Model.StatusBreakdown)
+                    {
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span><span class="badge @StatusBadge(s.Status)">@StatusLabel(s.Status)</span></span>
+                                <span class="text-muted">@s.Count (@s.Pct%)</span>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar @StatusBadge(s.Status).Replace("text-dark","")" role="progressbar" style="width: @s.Pct%"></div>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Member load -->
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">Member Load</h6>
+                <span class="small text-muted">@Model.MemberLoad.Count member(s)</span>
+            </div>
+            <div class="table-responsive">
+                @if (!Model.MemberLoad.Any())
+                {
+                    <div class="text-center text-muted py-3">No members assigned.</div>
+                }
+                else
+                {
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Member</th>
+                                <th>Role</th>
+                                <th class="text-end">Open tasks</th>
+                                <th class="text-end">Hours logged</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var m in Model.MemberLoad)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold">@m.DisplayName</div>
+                                        <div class="text-muted small">@m.Email</div>
+                                    </td>
+                                    <td><span class="badge @MemberRoleBadge(m.Role)">@m.Role</span></td>
+                                    <td class="text-end">
+                                        @if (m.OpenTaskCount > 0)
+                                        {
+                                            <span class="badge bg-warning text-dark">@m.OpenTaskCount</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">0</span>
+                                        }
+                                    </td>
+                                    <td class="text-end small">@m.HoursLogged.ToString("0.#")h</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+            @if (Model.CanManage)
+            {
+                <div class="card-footer bg-white text-end">
+                    <a asp-controller="Projects" asp-action="Members" asp-route-id="@Model.ProjectId" class="btn btn-sm btn-outline-secondary">Manage members</a>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- ============ QUICK LINKS ============ -->
+<div class="card border-0 shadow-sm bg-light">
+    <div class="card-body py-2 d-flex flex-wrap gap-2 align-items-center">
+        <span class="text-muted small me-2">Quick links:</span>
+        <a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@Model.ProjectId" class="btn btn-sm btn-outline-primary">All tasks</a>
+        <a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@Model.ProjectId" asp-route-assigneeId="me" class="btn btn-sm btn-outline-primary">My tasks</a>
+        <a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@Model.ProjectId" asp-route-status="InProgress" class="btn btn-sm btn-outline-secondary">In progress</a>
+        <a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@Model.ProjectId" asp-route-status="Done" class="btn btn-sm btn-outline-success">Done</a>
+        <a asp-controller="Reports" asp-action="ProjectSummary" asp-route-projectId="@Model.ProjectId" class="btn btn-sm btn-outline-secondary ms-auto">Project summary</a>
+    </div>
+</div> 

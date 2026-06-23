@@ -1,0 +1,225 @@
+﻿@model TaskDetailViewModel
+@using TTMS.Web.Models.Enums
+@using TTMS.Web.Models.ViewModels
+@{
+    ViewData["Title"] = Model.Title;
+    var canManageAttachments = (bool)(ViewData["CanManageAttachments"] ?? false);
+    var dueBadge = Model.DueDate.HasValue
+        ? (Model.DueDate.Value.Date < DateTime.UtcNow.Date && Model.Status != TaskItemStatus.Done && Model.Status != TaskItemStatus.Cancelled
+            ? "text-danger fw-bold" : "text-muted")
+        : "";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Index">Projects</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Details" asp-route-id="@Model.ProjectId">@Model.ProjectCode</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@Model.ProjectId">Tasks</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@Model.Title</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h1 class="h3 mb-1">@Model.Title</h1>
+        <div class="text-muted small">
+            <partial name="_TaskStatusBadge" model="Model.Status" />
+            <partial name="_TaskPriorityBadge" model="Model.Priority" />
+            <span class="ms-2">Assignee: <strong>@Model.AssigneeName</strong></span>
+            <span class="ms-2">Est. <strong>@Model.EstimatedHours.ToString("0.##")h</strong></span>
+            <span class="ms-2">Actual <strong>@Model.ActualHours.ToString("0.##")h</strong></span>
+            @if (Model.DueDate.HasValue)
+            {
+                <span class="ms-2 @dueBadge">Due @Model.DueDate.Value.ToString("yyyy-MM-dd")</span>
+            }
+            @if (Model.ViewerCanLogTime)
+            {
+                <span class="ms-3"><a asp-controller="TimeEntries" asp-action="Create" asp-route-projectId="@Model.ProjectId" asp-route-taskId="@Model.Id" class="btn btn-sm btn-outline-primary">+ Log time</a></span>
+            }
+        </div>
+    </div>
+    <div class="btn-group btn-group-sm">
+        @if (Model.ViewerCanEdit)
+        {
+            <a asp-action="Edit" asp-route-projectId="@Model.ProjectId" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Edit</a>
+        }
+        @if (Model.ViewerCanDelete)
+        {
+            <a asp-action="Delete" asp-route-projectId="@Model.ProjectId" asp-route-id="@Model.Id" class="btn btn-outline-danger">Delete</a>
+        }
+    </div>
+</div>
+
+<ul class="nav nav-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">Overview</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="time-tab" data-bs-toggle="tab" data-bs-target="#time" type="button" role="tab">Time Entries (@Model.TimeEntryCount)</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="attach-tab" data-bs-toggle="tab" data-bs-target="#attach" type="button" role="tab">Attachments (@Model.Attachments.Count)</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">History</button>
+    </li>
+</ul>
+
+<div class="tab-content border border-top-0 p-3 bg-white">
+
+    <div class="tab-pane fade show active" id="overview" role="tabpanel">
+        <h6 class="text-uppercase text-muted small">Description</h6>
+        @if (string.IsNullOrWhiteSpace(Model.DescriptionHtml))
+        {
+            <p class="text-muted"><em>No description yet.</em></p>
+        }
+        else
+        {
+            <div class="task-description">@Html.Raw(Model.DescriptionHtml)</div>
+        }
+    </div>
+
+    <div class="tab-pane fade" id="time" role="tabpanel">
+        @if (!Model.TimeEntries.Any())
+        {
+            <p class="text-muted"><em>No time logged yet.</em></p>
+            @if (Model.ViewerCanLogTime)
+            {
+                <a asp-controller="TimeEntries" asp-action="Create" asp-route-projectId="@Model.ProjectId" asp-route-taskId="@Model.Id" class="btn btn-sm btn-primary">Log first entry</a>
+            }
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>User</th>
+                            <th class="text-end">Hours</th>
+                            <th>Work log</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var e in Model.TimeEntries)
+                        {
+                            <tr>
+                                <td class="text-muted small">@e.WorkDate.ToString("yyyy-MM-dd")</td>
+                                <td>@e.UserDisplayName</td>
+                                <td class="text-end">@e.DurationHours.ToString("0.##")</td>
+                                <td class="text-muted small">
+                                    @if (!string.IsNullOrWhiteSpace(e.WorkLogText))
+                                    {
+                                        <span title="@e.WorkLogText">@(e.WorkLogText.Length > 80 ? e.WorkLogText[..80] + "…" : e.WorkLogText)</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    @if (e.ViewerCanEdit)
+                                    {
+                                        <a asp-controller="TimeEntries" asp-action="Edit" asp-route-projectId="@Model.ProjectId" asp-route-taskId="@Model.Id" asp-route-id="@e.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                    }
+                                    @if (e.ViewerCanDelete)
+                                    {
+                                        <form asp-controller="TimeEntries" asp-action="Delete" asp-route-projectId="@Model.ProjectId" asp-route-taskId="@Model.Id" asp-route-id="@e.Id" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove this time entry?');">Remove</button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="tab-pane fade" id="attach" role="tabpanel">
+        @if (canManageAttachments)
+        {
+            <form asp-action="UploadAttachment" asp-route-projectId="@Model.ProjectId" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="mb-3 d-flex gap-2 align-items-center">
+                @Html.AntiForgeryToken()
+                <input type="file" name="file" class="form-control form-control-sm" required />
+                <button type="submit" class="btn btn-sm btn-primary">Upload</button>
+            </form>
+            <div class="form-text mb-3">Max 50 MB. Allowed: jpg/jpeg/png/gif/webp/pdf/docx/xlsx/txt/csv/zip/rar/7z.</div>
+        }
+        @if (!Model.Attachments.Any())
+        {
+            <p class="text-muted"><em>No attachments yet.</em></p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>File</th>
+                            <th>Size</th>
+                            <th>Uploaded by</th>
+                            <th>When</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var a in Model.Attachments)
+                        {
+                            <tr>
+                                <td>@a.FileName <span class="text-muted small">(@a.ContentType)</span></td>
+                                <td class="text-muted small">@a.SizeDisplay</td>
+                                <td>@a.UploadedByName</td>
+                                <td class="text-muted small">@a.UploadedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td class="text-end">
+                                    <a asp-controller="Attachments" asp-action="Download" asp-route-id="@a.Id" class="btn btn-sm btn-outline-secondary">Download</a>
+                                    <form asp-controller="Attachments" asp-action="Delete" asp-route-id="@a.Id" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="returnProjectId" value="@Model.ProjectId" />
+                                        <input type="hidden" name="returnTaskId" value="@Model.Id" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove this attachment?');">Remove</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="tab-pane fade" id="history" role="tabpanel">
+        @if (!Model.RecentHistory.Any())
+        {
+            <p class="text-muted"><em>No history yet.</em></p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>When</th>
+                            <th>Who</th>
+                            <th>Event</th>
+                            <th>Old</th>
+                            <th>New</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var h in Model.RecentHistory)
+                        {
+                            <tr>
+                                <td class="text-muted small">@h.ChangedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>@h.ChangedByName</td>
+                                <td><span class="badge bg-light text-dark border">@h.Event</span></td>
+                                <td class="text-muted small">@h.OldValue</td>
+                                <td class="text-muted small">@h.NewValue</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+</div>

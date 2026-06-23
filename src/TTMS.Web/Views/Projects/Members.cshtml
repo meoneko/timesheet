@@ -1,0 +1,160 @@
+@model ProjectMembersViewModel
+@using TTMS.Web.Models.Enums
+@{
+    ViewData["Title"] = $"Members — {Model.ProjectName}";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a asp-action="Index">Projects</a></li>
+        <li class="breadcrumb-item"><a asp-action="Details" asp-route-id="@Model.ProjectId">@Model.ProjectName</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Members</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Members</h1>
+    <a asp-action="Details" asp-route-id="@Model.ProjectId" class="btn btn-sm btn-outline-secondary">Back to project</a>
+</div>
+
+@if (!Model.Members.Any())
+{
+    <div class="alert alert-warning">This project has no members yet.</div>
+}
+else
+{
+    <div class="table-responsive mb-4">
+        <table class="table table-sm align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Joined</th>
+                    @if (Model.CanManage)
+                    {
+                        <th class="text-end">Actions</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var m in Model.Members)
+                {
+                    var roleBadgeClass = m.Role switch
+                    {
+                        ProjectMemberRole.Owner => "bg-success",
+                        ProjectMemberRole.Member => "bg-primary",
+                        ProjectMemberRole.Viewer => "bg-secondary",
+                        _ => "bg-light text-dark border"
+                    };
+                    <tr>
+                        <td>
+                            @m.DisplayName
+                            @if (m.IsCurrentUser)
+                            {
+                                <span class="badge bg-info text-dark ms-1">you</span>
+                            }
+                        </td>
+                        <td class="text-muted small">@m.Email</td>
+                        <td><span class="badge @roleBadgeClass">@m.Role</span></td>
+                        <td class="text-muted small">@m.JoinedAt.ToString("yyyy-MM-dd")</td>
+                        @if (Model.CanManage)
+                        {
+                            <td class="text-end">
+                                <div class="btn-group btn-group-sm">
+                                    @if (m.Role != ProjectMemberRole.Owner)
+                                    {
+                                        <form asp-action="ChangeRole" asp-route-id="@Model.ProjectId" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="userId" value="@m.UserId" />
+                                            <input type="hidden" name="newRole" value="@ProjectMemberRole.Owner" />
+                                            <button type="submit" class="btn btn-outline-success btn-sm"
+                                                    title="Promote to Owner"
+                                                    onclick="return confirm('Promote this user to Owner?');">
+                                                Make Owner
+                                            </button>
+                                        </form>
+                                    }
+                                    @if (m.Role == ProjectMemberRole.Owner)
+                                    {
+                                        <form asp-action="ChangeRole" asp-route-id="@Model.ProjectId" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="userId" value="@m.UserId" />
+                                            <input type="hidden" name="newRole" value="@ProjectMemberRole.Member" />
+                                            <button type="submit" class="btn btn-outline-secondary btn-sm"
+                                                    title="Demote to Member">
+                                                Demote
+                                            </button>
+                                        </form>
+                                    }
+                                    @if (m.Role != ProjectMemberRole.Viewer)
+                                    {
+                                        <form asp-action="ChangeRole" asp-route-id="@Model.ProjectId" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="userId" value="@m.UserId" />
+                                            <input type="hidden" name="newRole" value="@ProjectMemberRole.Viewer" />
+                                            <button type="submit" class="btn btn-outline-secondary btn-sm"
+                                                    title="Make read-only">
+                                                Make Viewer
+                                            </button>
+                                        </form>
+                                    }
+                                    <form asp-action="RemoveMember" asp-route-id="@Model.ProjectId" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="userId" value="@m.UserId" />
+                                        <button type="submit" class="btn btn-outline-danger btn-sm"
+                                                title="Remove from project"
+                                                onclick="return confirm('Remove this member from the project?');">
+                                            Remove
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (Model.CanManage)
+{
+    @if (!Model.AvailableUsers.Any())
+    {
+        <div class="alert alert-info">All users are already members of this project.</div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-header">Add member</div>
+            <div class="card-body">
+                <form asp-action="AddMember" asp-route-id="@Model.ProjectId" method="post" class="row g-2 align-items-end">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="ProjectId" value="@Model.ProjectId" />
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1" for="UserId">User</label>
+                        <select name="UserId" id="UserId" class="form-select form-select-sm" required>
+                            <option value="">— Select a user —</option>
+                            @foreach (var u in Model.AvailableUsers)
+                            {
+                                <option value="@u.Id">@u.Display</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small mb-1" for="Role">Role</label>
+                        <select name="Role" id="Role" class="form-select form-select-sm" required>
+                            <option value="@ProjectMemberRole.Member" selected>Member</option>
+                            <option value="@ProjectMemberRole.Owner">Owner</option>
+                            <option value="@ProjectMemberRole.Viewer">Viewer</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-primary btn-sm w-100">Add to project</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    }
+}

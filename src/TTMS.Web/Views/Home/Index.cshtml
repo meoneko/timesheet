@@ -1,0 +1,48 @@
+﻿@{
+    ViewData["Title"] = "Home";
+}
+
+<div class="text-center">
+    <h1 class="display-5">Task &amp; Time Management System</h1>
+    <p class="lead">Track projects, tasks, and time logs in one place.</p>
+</div>
+
+@if (User.Identity?.IsAuthenticated == true)
+{
+    <div class="row mt-4 g-3">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Projects</h5>
+                    <p class="card-text">Browse the projects you have access to.</p>
+                    <a asp-controller="Projects" asp-action="Index" class="btn btn-primary">Open projects</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">My Timesheet</h5>
+                    <p class="card-text">See the hours you have logged.</p>
+                    <a asp-controller="Reports" asp-action="MyTimesheet" class="btn btn-primary">View timesheet</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Admin</h5>
+                    <p class="card-text">Team reports and user summaries (admin only).</p>
+                    <a asp-controller="Reports" asp-action="TeamTimesheet" class="btn btn-primary">Team reports</a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="text-center mt-4">
+        <a class="btn btn-primary btn-lg" asp-area="Identity" asp-page="/Account/Login">Log in</a>
+    </div>
+}
+

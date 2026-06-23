@@ -1,0 +1,13 @@
+@using TTMS.Web.Models.Enums
+@model TaskPriority
+@{
+    var badgeClass = Model switch
+    {
+        TaskPriority.Low => "bg-light text-dark border",
+        TaskPriority.Medium => "bg-info text-dark",
+        TaskPriority.High => "bg-warning text-dark",
+        TaskPriority.Critical => "bg-danger",
+        _ => "bg-light text-dark border"
+    };
+}
+<span class="badge @badgeClass">@Model</span>

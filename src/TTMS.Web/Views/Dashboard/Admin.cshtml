@@ -1,0 +1,317 @@
+﻿@model TTMS.Web.Models.ViewModels.AdminDashboardViewModel
+@using TTMS.Web.Models.Enums
+@{
+    ViewData["Title"] = "Admin Dashboard";
+
+    string EventIcon(HistoryEvent e) => e switch
+    {
+        HistoryEvent.Created => "plus-circle",
+        HistoryEvent.Updated => "pencil",
+        HistoryEvent.Deleted => "trash",
+        HistoryEvent.Restored => "arrow-counterclockwise",
+        HistoryEvent.StatusChanged => "arrow-left-right",
+        HistoryEvent.AssignedChanged => "person-check",
+        HistoryEvent.AttachmentAdded => "paperclip",
+        HistoryEvent.AttachmentRemoved => "paperclip",
+        _ => "activity"
+    };
+
+    string EventColor(HistoryEvent e) => e switch
+    {
+        HistoryEvent.Created => "text-success",
+        HistoryEvent.Updated => "text-primary",
+        HistoryEvent.Deleted => "text-danger",
+        HistoryEvent.Restored => "text-secondary",
+        HistoryEvent.StatusChanged => "text-warning",
+        HistoryEvent.AssignedChanged => "text-info",
+        HistoryEvent.AttachmentAdded => "text-info",
+        HistoryEvent.AttachmentRemoved => "text-danger",
+        _ => "text-muted"
+    };
+
+    string EventVerb(HistoryEvent e) => e switch
+    {
+        HistoryEvent.Created => "created",
+        HistoryEvent.Updated => "updated",
+        HistoryEvent.Deleted => "deleted",
+        HistoryEvent.Restored => "restored",
+        HistoryEvent.StatusChanged => "changed status",
+        HistoryEvent.AssignedChanged => "reassigned",
+        HistoryEvent.AttachmentAdded => "attached file to",
+        HistoryEvent.AttachmentRemoved => "removed file from",
+        _ => "modified"
+    };
+
+    string EventEntityName(string entity) => entity switch
+    {
+        "Task" => "task",
+        "TimeEntry" => "time entry",
+        "Attachment" => "attachment",
+        "Project" => "project",
+        _ => entity.ToLowerInvariant()
+    };
+
+    string RelTime(DateTime utc)
+    {
+        var diff = DateTime.UtcNow - utc;
+        if (diff.TotalSeconds < 60) return "just now";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes} min ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+        return utc.ToLocalTime().ToString("yyyy-MM-dd");
+    }
+
+    // Compute previous-page link (preserving pageSize)
+    var prevPage = Model.UsersPage > 1 ? Model.UsersPage - 1 : (int?)null;
+    var nextPage = Model.UsersPage < Model.UsersTotalPages ? Model.UsersPage + 1 : (int?)null;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Admin Dashboard</h1>
+    <div class="btn-group btn-group-sm">
+        <a asp-controller="Reports" asp-action="TeamTimesheet" class="btn btn-outline-secondary">Team timesheet</a>
+        <a asp-controller="Reports" asp-action="UserSummary" class="btn btn-outline-secondary">User summary</a>
+        <a asp-controller="Trash" asp-action="Index" class="btn btn-outline-danger">Recycle bin</a>
+    </div>
+</div>
+
+<!-- ============ SYSTEM-WIDE KPI CARDS ============ -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-xl">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small text-uppercase">Users</div>
+                <div class="display-6 fw-semibold">@Model.TotalUserCount</div>
+                <div class="text-muted small">@Model.AdminUserCount admin</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl">
+        <a asp-controller="Projects" asp-action="Index" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small text-uppercase">Projects</div>
+                    <div class="display-6 fw-semibold">@Model.TotalProjectCount</div>
+                    <div class="text-muted small">@Model.ActiveProjectCount active</div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-6 col-md-4 col-xl">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small text-uppercase">Tasks</div>
+                <div class="display-6 fw-semibold">@Model.TotalTaskCount</div>
+                <div class="text-muted small">@Model.CompletedTaskCount done</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small text-uppercase">Hours this month</div>
+                <div class="display-6 fw-semibold text-primary">@Model.HoursThisMonth.ToString("0.#")<small class="fs-6 text-muted">h</small></div>
+                <div class="text-muted small">across all users</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl">
+        <a asp-controller="Trash" asp-action="Index" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100 bg-danger bg-opacity-10">
+                <div class="card-body">
+                    <div class="text-muted small text-uppercase">Recycle bin</div>
+                    <div class="display-6 fw-semibold text-danger">@Model.RecycleBinCount</div>
+                    <div class="text-muted small">soft-deleted items</div>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- ============ TWO-COLUMN: RECENT ACTIVITY + TOP USERS ============ -->
+<div class="row g-3 mb-4">
+    <!-- Recent activity -->
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white"><h6 class="mb-0">Recent Activity</h6></div>
+            <div class="card-body p-0">
+                @if (!Model.RecentActivity.Any())
+                {
+                    <div class="text-center text-muted py-4">No activity yet.</div>
+                }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var a in Model.RecentActivity)
+                        {
+                            <li class="list-group-item">
+                                <div class="d-flex">
+                                    <div class="me-3 @EventColor(a.Event)" style="font-size: 1.25rem;">
+                                        <span>@EventIcon(a.Event)</span>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="small">
+                                            <strong>@a.ChangedByName</strong>
+                                            <span class="text-muted">@EventVerb(a.Event)</span>
+                                            <span class="text-muted">a</span>
+                                            @EventEntityName(a.Entity)
+                                            @if (!string.IsNullOrWhiteSpace(a.TargetTitle))
+                                            {
+                                                <span>:</span>
+                                                @if (a.Entity == "Task" || a.Entity == "TimeEntry")
+                                                {
+                                                    <a asp-controller="Tasks" asp-action="Details" asp-route-id="@(a.Entity == "TimeEntry" ? 0 : a.EntityId)" class="fw-semibold text-decoration-none">@a.TargetTitle</a>
+                                                }
+                                                else if (a.Entity == "Project")
+                                                {
+                                                    <a asp-controller="Projects" asp-action="Details" asp-route-id="@a.EntityId" class="fw-semibold text-decoration-none">@a.TargetTitle</a>
+                                                }
+                                                else
+                                                {
+                                                    <span class="fw-semibold">@a.TargetTitle</span>
+                                                }
+                                            }
+                                            @if (a.Event == HistoryEvent.StatusChanged && !string.IsNullOrWhiteSpace(a.OldValue) && !string.IsNullOrWhiteSpace(a.NewValue))
+                                            {
+                                                <span class="text-muted">:</span>
+                                                <span class="badge bg-light text-dark border">@a.OldValue</span>
+                                                <span class="text-muted">to</span>
+                                                <span class="badge bg-primary">@a.NewValue</span>
+                                            }
+                                            else if ((a.Event == HistoryEvent.Updated || a.Event == HistoryEvent.AssignedChanged) && !string.IsNullOrWhiteSpace(a.NewValue))
+                                            {
+                                                <span class="text-muted"> to</span>
+                                                <span class="badge bg-light text-dark border">@a.NewValue</span>
+                                            }
+                                        </div>
+                                        <div class="text-muted small">
+                                            @if (!string.IsNullOrWhiteSpace(a.TargetProjectCode))
+                                            {
+                                                <span class="badge bg-light text-dark border me-1">@a.TargetProjectCode</span>
+                                            }
+                                            <span>@RelTime(a.ChangedAt)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Top users -->
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white"><h6 class="mb-0">Top users (this month)</h6></div>
+            <div class="card-body">
+                @if (!Model.TopUsers.Any())
+                {
+                    <div class="text-center text-muted py-3">No time logged this month.</div>
+                }
+                else
+                {
+                    <ol class="list-unstyled mb-0">
+                        @foreach (var u in Model.TopUsers)
+                        {
+                            <li class="mb-2">
+                                <div class="d-flex justify-content-between small mb-1">
+                                    <span class="fw-semibold">@u.DisplayName</span>
+                                    <span class="text-muted">@u.HoursThisMonth.ToString("0.#")h</span>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-primary" role="progressbar" style="width: @u.Pct%"></div>
+                                </div>
+                            </li>
+                        }
+                    </ol>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============ USERS TABLE (PAGED) ============ -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">Users</h6>
+        <span class="text-muted small">@Model.UsersTotalCount total - page @Model.UsersPage of @Model.UsersTotalPages</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Joined</th>
+                    <th class="text-end">Projects</th>
+                    <th class="text-end">Hours this month</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Users.Any())
+                {
+                    <tr><td colspan="6" class="text-center text-muted py-3">No users.</td></tr>
+                }
+                else
+                {
+                    foreach (var u in Model.Users)
+                    {
+                        <tr>
+                            <td>
+                                <span class="fw-semibold">@u.DisplayName</span>
+                                @if (u.IsAdmin)
+                                {
+                                    <span class="badge bg-warning text-dark ms-1">admin</span>
+                                }
+                            </td>
+                            <td class="text-muted small">@u.Email</td>
+                            <td>
+                                @if (u.IsAdmin)
+                                {
+                                    <span class="badge bg-warning text-dark">Admin</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-light text-dark border">User</span>
+                                }
+                            </td>
+                            <td class="text-muted small">@u.CreatedAt.ToString("yyyy-MM-dd")</td>
+                            <td class="text-end">@u.ProjectCount</td>
+                            <td class="text-end small">@u.HoursThisMonth.ToString("0.#")h</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.UsersTotalPages > 1)
+    {
+        <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+            <span class="text-muted small">
+                Showing @((Model.UsersPage - 1) * Model.UsersPageSize + 1)-@(Math.Min(Model.UsersPage * Model.UsersPageSize, Model.UsersTotalCount)) of @Model.UsersTotalCount
+            </span>
+            <div class="btn-group btn-group-sm">
+                @if (prevPage.HasValue)
+                {
+                    <a asp-action="Admin" asp-route-page="@prevPage" asp-route-pageSize="@Model.UsersPageSize" class="btn btn-outline-secondary">&laquo; Prev</a>
+                }
+                else
+                {
+                    <button class="btn btn-outline-secondary" disabled>&laquo; Prev</button>
+                }
+                <span class="btn btn-light disabled">@Model.UsersPage / @Model.UsersTotalPages</span>
+                @if (nextPage.HasValue)
+                {
+                    <a asp-action="Admin" asp-route-page="@nextPage" asp-route-pageSize="@Model.UsersPageSize" class="btn btn-outline-secondary">Next &raquo;</a>
+                }
+                else
+                {
+                    <button class="btn btn-outline-secondary" disabled>Next &raquo;</button>
+                }
+            </div>
+        </div>
+    }
+</div> 
