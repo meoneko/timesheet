@@ -1,225 +1,423 @@
-﻿@model TaskDetailViewModel
+@model TaskDetailViewModel
 @using TTMS.Web.Models.Enums
 @using TTMS.Web.Models.ViewModels
 @{
     ViewData["Title"] = Model.Title;
     var canManageAttachments = (bool)(ViewData["CanManageAttachments"] ?? false);
-    var dueBadge = Model.DueDate.HasValue
-        ? (Model.DueDate.Value.Date < DateTime.UtcNow.Date && Model.Status != TaskItemStatus.Done && Model.Status != TaskItemStatus.Cancelled
-            ? "text-danger fw-bold" : "text-muted")
-        : "";
 }
 
-<nav aria-label="breadcrumb">
-    <ol class="breadcrumb small">
-        <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Index">Projects</a></li>
-        <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Details" asp-route-id="@Model.ProjectId">@Model.ProjectCode</a></li>
-        <li class="breadcrumb-item"><a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@Model.ProjectId">Tasks</a></li>
-        <li class="breadcrumb-item active" aria-current="page">@Model.Title</li>
-    </ol>
-</nav>
+@section Styles {
+    <link rel="stylesheet" href="~/css/task-detail.css" asp-append-version="true" />
+}
 
-<div class="d-flex justify-content-between align-items-start mb-3">
-    <div>
-        <h1 class="h3 mb-1">@Model.Title</h1>
-        <div class="text-muted small">
-            <partial name="_TaskStatusBadge" model="Model.Status" />
-            <partial name="_TaskPriorityBadge" model="Model.Priority" />
-            <span class="ms-2">Assignee: <strong>@Model.AssigneeName</strong></span>
-            <span class="ms-2">Est. <strong>@Model.EstimatedHours.ToString("0.##")h</strong></span>
-            <span class="ms-2">Actual <strong>@Model.ActualHours.ToString("0.##")h</strong></span>
-            @if (Model.DueDate.HasValue)
-            {
-                <span class="ms-2 @dueBadge">Due @Model.DueDate.Value.ToString("yyyy-MM-dd")</span>
-            }
+<!-- Breadcrumbs -->
+<div class="ttms-task-breadcrumb">
+    <a asp-controller="Projects" asp-action="Index">Projects</a> &nbsp;/&nbsp;
+    <a asp-controller="Projects" asp-action="Details" asp-route-id="@Model.ProjectId">@Model.ProjectCode</a> &nbsp;/&nbsp;
+    <a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@Model.ProjectId">Tasks</a> &nbsp;/&nbsp;
+    <span>@Model.Title</span>
+</div>
+
+<div class="row">
+    <!-- Main Left Column -->
+    <div class="col-lg-8 task-main-col">
+        <!-- Title and Toolbar Actions -->
+        <div class="ttms-task-title-area">
+            <h1 class="ttms-task-title">@Model.Title</h1>
+        </div>
+
+        <div class="ttms-task-actions-toolbar">
             @if (Model.ViewerCanLogTime)
             {
-                <span class="ms-3"><a asp-controller="TimeEntries" asp-action="Create" asp-route-projectId="@Model.ProjectId" asp-route-taskId="@Model.Id" class="btn btn-sm btn-outline-primary">+ Log time</a></span>
+                <a asp-controller="TimeEntries" asp-action="Create" asp-route-projectId="@Model.ProjectId" asp-route-taskId="@Model.Id" class="btn-task-action">
+                    <i class="bi bi-clock"></i> Log time
+                </a>
+            }
+            @if (canManageAttachments)
+            {
+                <button type="button" class="btn-task-action" onclick="document.getElementById('attach-tab').click(); document.getElementById('attach-tab').scrollIntoView({ behavior: 'smooth' });">
+                    <i class="bi bi-paperclip"></i> Attach
+                </button>
+            }
+            @if (Model.ViewerCanEdit)
+            {
+                <a asp-action="Edit" asp-route-projectId="@Model.ProjectId" asp-route-id="@Model.Id" class="btn-task-action">
+                    <i class="bi bi-pencil"></i> Edit
+                </a>
+            }
+            @if (Model.ViewerCanDelete)
+            {
+                <a asp-action="Delete" asp-route-projectId="@Model.ProjectId" asp-route-id="@Model.Id" class="btn-task-action btn-task-action-danger">
+                    <i class="bi bi-trash"></i> Delete
+                </a>
             }
         </div>
-    </div>
-    <div class="btn-group btn-group-sm">
-        @if (Model.ViewerCanEdit)
-        {
-            <a asp-action="Edit" asp-route-projectId="@Model.ProjectId" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Edit</a>
-        }
-        @if (Model.ViewerCanDelete)
-        {
-            <a asp-action="Delete" asp-route-projectId="@Model.ProjectId" asp-route-id="@Model.Id" class="btn btn-outline-danger">Delete</a>
-        }
-    </div>
-</div>
 
-<ul class="nav nav-tabs" role="tablist">
-    <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">Overview</button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="time-tab" data-bs-toggle="tab" data-bs-target="#time" type="button" role="tab">Time Entries (@Model.TimeEntryCount)</button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="attach-tab" data-bs-toggle="tab" data-bs-target="#attach" type="button" role="tab">Attachments (@Model.Attachments.Count)</button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">History</button>
-    </li>
-</ul>
-
-<div class="tab-content border border-top-0 p-3 bg-white">
-
-    <div class="tab-pane fade show active" id="overview" role="tabpanel">
-        <h6 class="text-uppercase text-muted small">Description</h6>
-        @if (string.IsNullOrWhiteSpace(Model.DescriptionHtml))
-        {
-            <p class="text-muted"><em>No description yet.</em></p>
-        }
-        else
-        {
-            <div class="task-description">@Html.Raw(Model.DescriptionHtml)</div>
-        }
-    </div>
-
-    <div class="tab-pane fade" id="time" role="tabpanel">
-        @if (!Model.TimeEntries.Any())
-        {
-            <p class="text-muted"><em>No time logged yet.</em></p>
-            @if (Model.ViewerCanLogTime)
+        <!-- Description Box -->
+        <div class="ttms-section-label">Description</div>
+        <div class="task-description-wrapper">
+            @if (string.IsNullOrWhiteSpace(Model.DescriptionHtml))
             {
-                <a asp-controller="TimeEntries" asp-action="Create" asp-route-projectId="@Model.ProjectId" asp-route-taskId="@Model.Id" class="btn btn-sm btn-primary">Log first entry</a>
+                <p class="text-muted"><em>No description yet.</em></p>
             }
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-sm align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Date</th>
-                            <th>User</th>
-                            <th class="text-end">Hours</th>
-                            <th>Work log</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var e in Model.TimeEntries)
-                        {
-                            <tr>
-                                <td class="text-muted small">@e.WorkDate.ToString("yyyy-MM-dd")</td>
-                                <td>@e.UserDisplayName</td>
-                                <td class="text-end">@e.DurationHours.ToString("0.##")</td>
-                                <td class="text-muted small">
-                                    @if (!string.IsNullOrWhiteSpace(e.WorkLogText))
+            else
+            {
+                <div class="task-description">@Html.Raw(Model.DescriptionHtml)</div>
+            }
+        </div>
+
+        <!-- Activity Section with Counters -->
+        <div class="ttms-section-label">Activity</div>
+        <div class="activity-tabs-card mb-4">
+            <ul class="nav nav-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">Overview</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="time-tab" data-bs-toggle="tab" data-bs-target="#time" type="button" role="tab">
+                        Time Entries <span class="tab-badge">@Model.TimeEntryCount</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="attach-tab" data-bs-toggle="tab" data-bs-target="#attach" type="button" role="tab">
+                        Attachments <span class="tab-badge">@Model.Attachments.Count</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">
+                        History <span class="tab-badge">@Model.RecentHistory.Count</span>
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+                <!-- Overview Tab -->
+                <div class="tab-pane fade show active" id="overview" role="tabpanel">
+                    <div class="d-flex flex-column gap-2 text-muted small">
+                        <div><i class="bi bi-person-fill me-2"></i>Reporter: <strong>@Model.ReporterName</strong></div>
+                        <div><i class="bi bi-calendar-event me-2"></i>Created: <strong>@Model.CreatedAt.ToString("yyyy-MM-dd HH:mm")</strong></div>
+                    </div>
+                </div>
+
+                <!-- Time Entries Tab -->
+                <div class="tab-pane fade" id="time" role="tabpanel">
+                    @if (!Model.TimeEntries.Any())
+                    {
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-clock-history fs-2 d-block mb-2"></i>
+                            <em>No time logged yet.</em>
+                            @if (Model.ViewerCanLogTime)
+                            {
+                                <div class="mt-3">
+                                    <a asp-controller="TimeEntries" asp-action="Create" asp-route-projectId="@Model.ProjectId" asp-route-taskId="@Model.Id" class="btn btn-sm btn-primary">Log first entry</a>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>User</th>
+                                        <th class="text-end">Hours</th>
+                                        <th>Work log</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var e in Model.TimeEntries)
                                     {
-                                        <span title="@e.WorkLogText">@(e.WorkLogText.Length > 80 ? e.WorkLogText[..80] + "…" : e.WorkLogText)</span>
+                                        <tr>
+                                            <td class="text-muted small">@e.WorkDate.ToString("yyyy-MM-dd")</td>
+                                            <td>@e.UserDisplayName</td>
+                                            <td class="text-end">@e.DurationHours.ToString("0.##")h</td>
+                                            <td class="text-muted small">
+                                                @if (!string.IsNullOrWhiteSpace(e.WorkLogText))
+                                                {
+                                                    <span title="@e.WorkLogText">@(e.WorkLogText.Length > 80 ? e.WorkLogText[..80] + "…" : e.WorkLogText)</span>
+                                                }
+                                            </td>
+                                            <td class="text-end">
+                                                @if (e.ViewerCanEdit)
+                                                {
+                                                    <a asp-controller="TimeEntries" asp-action="Edit" asp-route-projectId="@Model.ProjectId" asp-route-taskId="@Model.Id" asp-route-id="@e.Id" class="btn btn-sm btn-outline-secondary py-0 px-2">Edit</a>
+                                                }
+                                                @if (e.ViewerCanDelete)
+                                                {
+                                                    <form asp-controller="TimeEntries" asp-action="Delete" asp-route-projectId="@Model.ProjectId" asp-route-taskId="@Model.Id" asp-route-id="@e.Id" method="post" class="d-inline">
+                                                        @Html.AntiForgeryToken()
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="return confirm('Remove this time entry?');">Remove</button>
+                                                    </form>
+                                                }
+                                            </td>
+                                        </tr>
                                     }
-                                </td>
-                                <td class="text-end">
-                                    @if (e.ViewerCanEdit)
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+
+                <!-- Attachments Tab -->
+                <div class="tab-pane fade" id="attach" role="tabpanel">
+                    @if (canManageAttachments)
+                    {
+                        <form asp-action="UploadAttachment" asp-route-projectId="@Model.ProjectId" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="attachment-upload-form mb-4">
+                            @Html.AntiForgeryToken()
+                            <i class="bi bi-cloud-arrow-up fs-2 text-muted d-block mb-2"></i>
+                            <p class="mb-2 small text-muted">Drag files here or click to upload</p>
+                            <div class="d-flex justify-content-center gap-2 max-w-md mx-auto">
+                                <input type="file" name="file" class="form-control form-control-sm w-auto" required />
+                                <button type="submit" class="btn btn-sm btn-primary">Upload</button>
+                            </div>
+                            <div class="form-text small mt-2">Max 50 MB. Allowed: jpg, png, gif, webp, pdf, docx, xlsx, txt, zip, rar, 7z.</div>
+                        </form>
+                    }
+                    @if (!Model.Attachments.Any())
+                    {
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-paperclip fs-2 d-block mb-2"></i>
+                            <em>No attachments yet.</em>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>File</th>
+                                        <th>Size</th>
+                                        <th>Uploaded by</th>
+                                        <th>When</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var a in Model.Attachments)
                                     {
-                                        <a asp-controller="TimeEntries" asp-action="Edit" asp-route-projectId="@Model.ProjectId" asp-route-taskId="@Model.Id" asp-route-id="@e.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                        <tr>
+                                            <td>@a.FileName <span class="text-muted small">(@a.ContentType)</span></td>
+                                            <td class="text-muted small">@a.SizeDisplay</td>
+                                            <td>@a.UploadedByName</td>
+                                            <td class="text-muted small">@a.UploadedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                            <td class="text-end">
+                                                <a asp-controller="Attachments" asp-action="Download" asp-route-id="@a.Id" class="btn btn-sm btn-outline-secondary py-0 px-2">Download</a>
+                                                @if (canManageAttachments)
+                                                {
+                                                    <form asp-controller="Attachments" asp-action="Delete" asp-route-id="@a.Id" method="post" class="d-inline">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="returnProjectId" value="@Model.ProjectId" />
+                                                        <input type="hidden" name="returnTaskId" value="@Model.Id" />
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="return confirm('Remove this attachment?');">Remove</button>
+                                                    </form>
+                                                }
+                                            </td>
+                                        </tr>
                                     }
-                                    @if (e.ViewerCanDelete)
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+
+                <!-- History Tab -->
+                <div class="tab-pane fade" id="history" role="tabpanel">
+                    @if (!Model.RecentHistory.Any())
+                    {
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-clock-history fs-2 d-block mb-2"></i>
+                            <em>No history yet.</em>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>When</th>
+                                        <th>Who</th>
+                                        <th>Event</th>
+                                        <th>Old</th>
+                                        <th>New</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var h in Model.RecentHistory)
                                     {
-                                        <form asp-controller="TimeEntries" asp-action="Delete" asp-route-projectId="@Model.ProjectId" asp-route-taskId="@Model.Id" asp-route-id="@e.Id" method="post" class="d-inline">
-                                            @Html.AntiForgeryToken()
-                                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove this time entry?');">Remove</button>
-                                        </form>
+                                        <tr>
+                                            <td class="text-muted small">@h.ChangedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                            <td>@h.ChangedByName</td>
+                                            <td><span class="badge bg-light text-dark border">@h.Event</span></td>
+                                            <td class="text-muted small">
+                                                @if (h.Event == HistoryEvent.StatusChanged)
+                                                {
+                                                    <span class="history-diff-del">@h.OldValue</span>
+                                                }
+                                                else
+                                                {
+                                                    @h.OldValue
+                                                }
+                                            </td>
+                                            <td class="text-muted small">
+                                                @if (h.Event == HistoryEvent.StatusChanged)
+                                                {
+                                                    <span class="history-diff-ins">@h.NewValue</span>
+                                                }
+                                                else
+                                                {
+                                                    @h.NewValue
+                                                }
+                                            </td>
+                                        </tr>
                                     }
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
             </div>
-        }
+        </div>
     </div>
 
-    <div class="tab-pane fade" id="attach" role="tabpanel">
-        @if (canManageAttachments)
-        {
-            <form asp-action="UploadAttachment" asp-route-projectId="@Model.ProjectId" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="mb-3 d-flex gap-2 align-items-center">
-                @Html.AntiForgeryToken()
-                <input type="file" name="file" class="form-control form-control-sm" required />
-                <button type="submit" class="btn btn-sm btn-primary">Upload</button>
-            </form>
-            <div class="form-text mb-3">Max 50 MB. Allowed: jpg/jpeg/png/gif/webp/pdf/docx/xlsx/txt/csv/zip/rar/7z.</div>
-        }
-        @if (!Model.Attachments.Any())
-        {
-            <p class="text-muted"><em>No attachments yet.</em></p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-sm align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>File</th>
-                            <th>Size</th>
-                            <th>Uploaded by</th>
-                            <th>When</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var a in Model.Attachments)
+    <!-- Sidebar Right Column -->
+    <div class="col-lg-4">
+        <div class="task-side-col">
+            <!-- Status Select Form -->
+            <div class="status-change-container">
+                <label class="ttms-section-label d-block mb-1">Status</label>
+                <form asp-action="ChangeStatus" asp-route-projectId="@Model.ProjectId" asp-route-id="@Model.Id" method="post" id="statusChangeForm">
+                    @Html.AntiForgeryToken()
+                    @{
+                        var selectClass = Model.Status switch
                         {
-                            <tr>
-                                <td>@a.FileName <span class="text-muted small">(@a.ContentType)</span></td>
-                                <td class="text-muted small">@a.SizeDisplay</td>
-                                <td>@a.UploadedByName</td>
-                                <td class="text-muted small">@a.UploadedAt.ToString("yyyy-MM-dd HH:mm")</td>
-                                <td class="text-end">
-                                    <a asp-controller="Attachments" asp-action="Download" asp-route-id="@a.Id" class="btn btn-sm btn-outline-secondary">Download</a>
-                                    <form asp-controller="Attachments" asp-action="Delete" asp-route-id="@a.Id" method="post" class="d-inline">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="returnProjectId" value="@Model.ProjectId" />
-                                        <input type="hidden" name="returnTaskId" value="@Model.Id" />
-                                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove this attachment?');">Remove</button>
-                                    </form>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        }
-    </div>
-
-    <div class="tab-pane fade" id="history" role="tabpanel">
-        @if (!Model.RecentHistory.Any())
-        {
-            <p class="text-muted"><em>No history yet.</em></p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-sm align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>When</th>
-                            <th>Who</th>
-                            <th>Event</th>
-                            <th>Old</th>
-                            <th>New</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var h in Model.RecentHistory)
+                            TaskItemStatus.Todo => "status-todo",
+                            TaskItemStatus.InProgress => "status-inprogress",
+                            TaskItemStatus.Pending => "status-pending",
+                            TaskItemStatus.Blocked => "status-blocked",
+                            TaskItemStatus.Done => "status-done",
+                            TaskItemStatus.Cancelled => "status-cancelled",
+                            _ => "status-todo"
+                        };
+                    }
+                    <select name="status" class="jira-status-select @selectClass" onchange="submitStatusForm(this)">
+                        @foreach (TaskItemStatus s in Enum.GetValues(typeof(TaskItemStatus)))
                         {
-                            <tr>
-                                <td class="text-muted small">@h.ChangedAt.ToString("yyyy-MM-dd HH:mm")</td>
-                                <td>@h.ChangedByName</td>
-                                <td><span class="badge bg-light text-dark border">@h.Event</span></td>
-                                <td class="text-muted small">@h.OldValue</td>
-                                <td class="text-muted small">@h.NewValue</td>
-                            </tr>
+                            <!option value="@s" @(Model.Status == s ? "selected" : "") class="bg-white text-dark">
+                                @s.ToString()
+                            </!option>
                         }
-                    </tbody>
-                </table>
+                    </select>
+                </form>
             </div>
-        }
-    </div>
 
+            <!-- Time Tracking Progress Bar -->
+            <div class="time-tracking-container">
+                <div class="time-tracking-title">Time Tracking</div>
+                @{
+                    decimal trackingPercent = 0;
+                    if (Model.EstimatedHours > 0)
+                    {
+                        trackingPercent = Math.Min(100, (Model.ActualHours / Model.EstimatedHours) * 100);
+                    }
+                    var trackingBarClass = Model.ActualHours > Model.EstimatedHours && Model.EstimatedHours > 0 ? "over-budget" : "";
+                }
+                <div class="time-tracking-bar">
+                    <div class="time-tracking-progress @trackingBarClass" style="width: @(trackingPercent.ToString("0"))%"></div>
+                </div>
+                <div class="time-tracking-text">
+                    <span><strong>@Model.ActualHours.ToString("0.##")h</strong> logged</span>
+                    <span><strong>@Model.EstimatedHours.ToString("0.##")h</strong> estimated</span>
+                </div>
+            </div>
+
+            <!-- Details List -->
+            <div class="ttms-section-label mb-2">Details</div>
+            <table class="table task-details-grid">
+                <tbody>
+                    <tr>
+                        <td class="task-details-label">Assignee</td>
+                        <td class="task-details-value">
+                            @{
+                                // Get Initials for Assignee Avatar
+                                string initials = "??";
+                                int avatarBgIndex = 0;
+                                if (!string.IsNullOrWhiteSpace(Model.AssigneeName))
+                                {
+                                    var parts = Model.AssigneeName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                                    if (parts.Length >= 2)
+                                    {
+                                        initials = (parts[0][0].ToString() + parts[parts.Length - 1][0].ToString()).ToUpper();
+                                    }
+                                    else if (parts.Length == 1)
+                                    {
+                                        initials = (parts[0].Length >= 2 ? parts[0].Substring(0, 2) : parts[0]).ToUpper();
+                                    }
+                                    // Generate background color class index based on sum of char codes
+                                    avatarBgIndex = Model.AssigneeName.Sum(c => (int)c) % 6;
+                                }
+                            }
+                            <div class="avatar-container">
+                                <span class="avatar-circle avatar-bg-@avatarBgIndex" title="@Model.AssigneeName">@initials</span>
+                                <span>@Model.AssigneeName</span>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="task-details-label">Priority</td>
+                        <td class="task-details-value">
+                            <partial name="_TaskPriorityBadge" model="Model.Priority" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="task-details-label">Due Date</td>
+                        <td class="task-details-value">
+                            @if (Model.DueDate.HasValue)
+                            {
+                                var dueBadgeClass = (Model.DueDate.Value.Date < DateTime.UtcNow.Date && Model.Status != TaskItemStatus.Done && Model.Status != TaskItemStatus.Cancelled)
+                                    ? "text-danger fw-bold"
+                                    : "";
+                                <span class="@dueBadgeClass">
+                                    @if (!string.IsNullOrEmpty(dueBadgeClass))
+                                    {
+                                        <i class="bi bi-exclamation-circle-fill me-1"></i>
+                                    }
+                                    @Model.DueDate.Value.ToString("yyyy-MM-dd")
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">None</span>
+                            }
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
+
+@section Scripts {
+    <script>
+        function submitStatusForm(selectEl) {
+            // Remove previous classes
+            selectEl.className = 'jira-status-select';
+            
+            // Map values to CSS status classes
+            var val = selectEl.value.toLowerCase();
+            if (val === 'todo') selectEl.classList.add('status-todo');
+            else if (val === 'inprogress') selectEl.classList.add('status-inprogress');
+            else if (val === 'pending') selectEl.classList.add('status-pending');
+            else if (val === 'blocked') selectEl.classList.add('status-blocked');
+            else if (val === 'done') selectEl.classList.add('status-done');
+            else if (val === 'cancelled') selectEl.classList.add('status-cancelled');
+
+            // Auto-submit the form
+            document.getElementById('statusChangeForm').submit();
+        }
+    </script>
+}

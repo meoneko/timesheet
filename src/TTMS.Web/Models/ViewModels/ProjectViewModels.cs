@@ -80,6 +80,23 @@ public class ProjectDetailViewModel
     public List<HistoryRowViewModel> RecentHistory { get; set; } = new();
     public int OpenTaskCount { get; set; }
     public int TotalTaskCount { get; set; }
+
+    public int TotalTimeLoggedMinutes { get; set; }
+    public int TimeLoggedMinutesThisWeek { get; set; }
+    public DateTime? LastActivityAt { get; set; }
+    public List<TaskSummaryItem> RecentTasks { get; set; } = new();
+    public Dictionary<TaskItemStatus, int> TaskStatusCounts { get; set; } = new();
+    public List<int> TimeLoggedPerDayThisWeek { get; set; } = new();
+}
+
+public class TaskSummaryItem
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string? AssigneeName { get; set; }
+    public TaskItemStatus Status { get; set; }
+    public DateTime? DueDate { get; set; }
+    public int TotalLoggedMinutes { get; set; }
 }
 
 /// <summary>Single row in the project members list.</summary>

@@ -51,7 +51,7 @@ public class ProjectsController : Controller
         if (!await _authz.CanViewProjectAsync(CurrentUserId(), id))
             return Forbid();
 
-        var vm = await _projects.GetDetailAsync(id, ct);
+        var vm = await _projects.GetDetailAsync(id, CurrentUserId(), ct);
         if (vm is null) return NotFound();
 
         // Inject viewer role / is-admin flags so the view can show/hide actions.
@@ -64,6 +64,7 @@ public class ProjectsController : Controller
 
         ViewData["Title"] = $"{vm.Code} — {vm.Name}";
         ViewData["CanManage"] = await _authz.CanManageProjectAsync(CurrentUserId(), id);
+        ViewData["AvailableUsers"] = await _projects.GetAvailableUsersAsync(id, ct);
         return View(vm);
     }
 
@@ -164,7 +165,7 @@ public class ProjectsController : Controller
         if (!await _authz.CanManageProjectAsync(CurrentUserId(), id))
             return Forbid();
 
-        var vm = await _projects.GetDetailAsync(id, ct);
+        var vm = await _projects.GetDetailAsync(id, CurrentUserId(), ct);
         if (vm is null) return NotFound();
         ViewData["Title"] = $"Delete {vm.Code}";
         return View(vm);
@@ -256,7 +257,7 @@ public class ProjectsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> AddMember(int id, AddMemberViewModel model, CancellationToken ct)
+    public async Task<IActionResult> AddMember(int id, AddMemberViewModel model, string? returnUrl, CancellationToken ct)
     {
         if (id != model.ProjectId) return BadRequest();
         if (!await _authz.CanManageProjectAsync(CurrentUserId(), id))
@@ -271,12 +272,15 @@ public class ProjectsController : Controller
         {
             TempData["StatusMessage"] = $"Added {model.Role} to the project.";
         }
-        return RedirectToAction(nameof(Members), new { id });
+        
+        if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+            return Redirect(returnUrl);
+        return RedirectToAction(nameof(Details), new { id, tab = "members" });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ChangeRole(int id, string userId, TTMS.Web.Models.Enums.ProjectMemberRole newRole, CancellationToken ct)
+    public async Task<IActionResult> ChangeRole(int id, string userId, TTMS.Web.Models.Enums.ProjectMemberRole newRole, string? returnUrl, CancellationToken ct)
     {
         if (!await _authz.CanManageProjectAsync(CurrentUserId(), id))
             return Forbid();
@@ -286,12 +290,15 @@ public class ProjectsController : Controller
             TempData["ErrorMessage"] = result.Error ?? "Could not change role.";
         else
             TempData["StatusMessage"] = $"Role updated to {newRole}.";
-        return RedirectToAction(nameof(Members), new { id });
+        
+        if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+            return Redirect(returnUrl);
+        return RedirectToAction(nameof(Details), new { id, tab = "members" });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> RemoveMember(int id, string userId, CancellationToken ct)
+    public async Task<IActionResult> RemoveMember(int id, string userId, string? returnUrl, CancellationToken ct)
     {
         if (!await _authz.CanManageProjectAsync(CurrentUserId(), id))
             return Forbid();
@@ -301,6 +308,34 @@ public class ProjectsController : Controller
             TempData["ErrorMessage"] = result.Error ?? "Could not remove member.";
         else
             TempData["StatusMessage"] = "Member removed.";
-        return RedirectToAction(nameof(Members), new { id });
+        
+        if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+            return Redirect(returnUrl);
+        return RedirectToAction(nameof(Details), new { id, tab = "members" });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> History(int id, int skip = 0, int take = 10, string? eventFilter = null, string? userFilter = null, CancellationToken ct = default)
+    {
+        if (!await _authz.CanViewProjectAsync(CurrentUserId(), id))
+            return Forbid();
+
+        // Clamp pagination inputs to prevent DoS via huge skip/take values.
+        // 100/page cap matches the JS Load More page size; skip is bounded so a
+        // malicious caller can't drag the server through deep OFFSET scans.
+        const int MaxTake = 100;
+        const int MaxSkip = 10_000;
+        skip = Math.Clamp(skip, 0, MaxSkip);
+        take = Math.Clamp(take, 1, MaxTake);
+
+        try
+        {
+            var rows = await _projects.GetHistoryPageAsync(id, skip, take, eventFilter, userFilter, CurrentUserId(), ct);
+            return PartialView("_HistoryRowsPartial", rows);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
     }
 }

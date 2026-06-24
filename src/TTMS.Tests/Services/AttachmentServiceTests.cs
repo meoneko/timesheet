@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -49,7 +49,7 @@ public class AttachmentServiceTests
             var sanitizer = new HtmlSanitizationService();
             var time = new TimeConversionService();
             Tasks = new TaskService(ah.Db, ah.Auth, history, time, sanitizer);
-            Projects = new ProjectService(ah.Db, history, ah.Auth, sanitizer, ah.UserManager);
+            Projects = new ProjectService(ah.Db, history, ah.Auth, sanitizer, ah.UserManager, null!);
             Storage = new Mock<IFileStorageService>();
             Storage.Setup(s => s.SaveAsync(It.IsAny<IFormFile>(), It.IsAny<AttachmentEntityType>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync((IFormFile f, AttachmentEntityType e, int id, CancellationToken _) => $"{(e == AttachmentEntityType.Task ? "tasks" : "timeentries")}/{id}/{f.FileName}");

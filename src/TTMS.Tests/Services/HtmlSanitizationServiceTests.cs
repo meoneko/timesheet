@@ -154,4 +154,15 @@ public class HtmlSanitizationServiceTests
         Assert.Contains("<3", out2);
         Assert.Contains("\"tests\"", out2);
     }
+
+    [Fact]
+    public void Sanitize_PreservesBase64Images()
+    {
+        var input = "<p><img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA\" alt=\"red dot\" width=\"100\" height=\"100\" /></p>";
+        var out2 = _svc.Sanitize(input);
+        Assert.Contains("src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA\"", out2);
+        Assert.Contains("alt=\"red dot\"", out2);
+        Assert.Contains("width=\"100\"", out2);
+        Assert.Contains("height=\"100\"", out2);
+    }
 }

@@ -1,4 +1,4 @@
-﻿@model List<TaskListItem>
+@model List<TaskListItem>
 @using TTMS.Web.Models.ViewModels
 @using TTMS.Web.Models.Enums
 @{
@@ -9,18 +9,24 @@
     var hasFilter = filter?.HasAnyFilter ?? false;
 }
 
-<nav aria-label="breadcrumb">
-    <ol class="breadcrumb small">
+@section Styles {
+    <link rel="stylesheet" href="~/css/task-detail.css" asp-append-version="true" />
+}
+
+<nav aria-label="breadcrumb" class="ttms-task-breadcrumb">
+    <ol class="breadcrumb mb-0">
         <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Index">Projects</a></li>
         <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Details" asp-route-id="@projectId">Project</a></li>
         <li class="breadcrumb-item active" aria-current="page">Tasks</li>
     </ol>
 </nav>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">Tasks</h1>
-    <a asp-action="Create" asp-route-projectId="@projectId" class="btn btn-primary btn-sm">
-        <span aria-hidden="true">+</span> New task
+<div class="d-flex justify-content-between align-items-center mb-4 mt-2">
+    <div>
+        <h1 class="h3 mb-0 fw-bold" style="color: #172B4D;">Tasks</h1>
+    </div>
+    <a asp-action="Create" asp-route-projectId="@projectId" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1">
+        <i class="bi bi-plus-lg"></i> New Task
     </a>
 </div>
 
@@ -31,10 +37,10 @@
 
 @if (rows.Count == 0)
 {
-    <div class="alert alert-info">
+    <div class="alert alert-info border-0 shadow-sm p-3">
         @if (hasFilter)
         {
-            <text>No tasks match the current filters. <a href="@Url.Action("Index", new { projectId })" class="alert-link">Clear filters</a> or try different criteria.</text>
+            <text>No tasks match the current filters. <a href="@Url.Action("Index", new { projectId })" class="alert-link fw-bold">Clear filters</a> or try different criteria.</text>
         }
         else
         {
@@ -46,56 +52,112 @@ else
 {
     @if (hasFilter)
     {
-        <p class="small text-muted mb-2">@rows.Count task(s) match the current filters.</p>
+        <p class="small text-muted mb-3" style="font-weight: 500;">@rows.Count task(s) match the current filters.</p>
     }
-    <div class="table-responsive">
-        <table class="table table-sm table-hover align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>Title</th>
-                    <th>Status</th>
-                    <th>Priority</th>
-                    <th>Assignee</th>
-                    <th class="text-end">Est.</th>
-                    <th class="text-end">Actual</th>
-                    <th class="text-end">Delta</th>
-                    <th class="text-end">Entries</th>
-                    <th>Due</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var t in rows)
-                {
+    <div class="card border rounded shadow-sm overflow-hidden bg-white">
+        <div class="table-responsive">
+            <table class="table ttms-task-table align-middle mb-0">
+                <thead>
                     <tr>
-                        <td>
-                            <a asp-action="Details" asp-route-projectId="@projectId" asp-route-id="@t.Id" class="text-decoration-none">
-                                @t.Title
-                            </a>
-                        </td>
-                        <td><partial name="_TaskStatusBadge" model="t.Status" /></td>
-                        <td><partial name="_TaskPriorityBadge" model="t.Priority" /></td>
-                        <td class="text-muted small">@t.AssigneeName</td>
-                        <td class="text-end">@t.EstimatedHours.ToString("0.##")</td>
-                        <td class="text-end">@t.ActualHours.ToString("0.##")</td>
-                        <td class="text-end small">
-                            @if (t.Variance > 0)
-                            {
-                                <span class="text-danger fw-bold">+@t.Variance.ToString("0.##")</span>
-                            }
-                            else if (t.Variance < 0)
-                            {
-                                <span class="text-success">@t.Variance.ToString("0.##")</span>
-                            }
-                            else
-                            {
-                                <span class="text-muted">0</span>
-                            }
-                        </td>
-                        <td class="text-end">@t.TimeEntryCount</td>
-                        <td class="text-muted small">@t.DueDate?.ToString("yyyy-MM-dd")</td>
+                        <th>Title</th>
+                        <th>Status</th>
+                        <th>Priority</th>
+                        <th>Assignee</th>
+                        <th style="min-width: 150px;">Progress &amp; Est.</th>
+                        <th class="text-end">Delta</th>
+                        <th class="text-end">Entries</th>
+                        <th>Due Date</th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var t in rows)
+                    {
+                        <tr class="ttms-task-row">
+                            <td class="fw-semibold">
+                                <a asp-action="Details" asp-route-projectId="@projectId" asp-route-id="@t.Id">
+                                    @t.Title
+                                </a>
+                            </td>
+                            <td>
+                                <partial name="_TaskStatusBadge" model="t.Status" />
+                            </td>
+                            <td>
+                                <partial name="_TaskPriorityBadge" model="t.Priority" />
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(t.AssigneeName))
+                                {
+                                    <div class="avatar-container" title="Assignee: @t.AssigneeName">
+                                        <span class="avatar-circle @GetAvatarBgClass(t.AssigneeName)">
+                                            @GetInitials(t.AssigneeName)
+                                        </span>
+                                        <span class="small text-dark fw-medium">@t.AssigneeName</span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small italic">Unassigned</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="flex-grow-1">
+                                        <div class="mini-progress-bar" title="Logged: @t.ActualHours.ToString("0.##")h / Est: @t.EstimatedHours.ToString("0.##")h">
+                                            @{
+                                                var percent = t.EstimatedHours > 0 ? (t.ActualHours / t.EstimatedHours) * 100 : 0;
+                                                var isOverBudget = t.ActualHours > t.EstimatedHours && t.EstimatedHours > 0;
+                                                var displayPercent = Math.Min(percent, 100);
+                                            }
+                                            <div class="mini-progress-fill @(isOverBudget ? "bg-danger" : "bg-primary")" style="width: @displayPercent.ToString("0.##")%"></div>
+                                        </div>
+                                    </div>
+                                    <span class="small text-muted text-nowrap" style="font-size: 0.8rem; font-weight: 500;">
+                                        @t.ActualHours.ToString("0.##")h / @t.EstimatedHours.ToString("0.##")h
+                                    </span>
+                                </div>
+                            </td>
+                            <td class="text-end font-monospace small">
+                                @if (t.Variance > 0)
+                                {
+                                    <span class="text-danger fw-bold">+@t.Variance.ToString("0.##")h</span>
+                                }
+                                else if (t.Variance < 0)
+                                {
+                                    <span class="text-success fw-bold">@t.Variance.ToString("0.##")h</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">0</span>
+                                }
+                            </td>
+                            <td class="text-end fw-medium text-muted">
+                                @t.TimeEntryCount
+                            </td>
+                            <td class="text-muted small">
+                                @t.DueDate?.ToString("yyyy-MM-dd")
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
+}
+
+@functions {
+    public string GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "U";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1) return parts[0][0].ToString().ToUpper();
+        return (parts[0][0].ToString() + parts[parts.Length - 1][0].ToString()).ToUpper();
+    }
+
+    public string GetAvatarBgClass(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "avatar-bg-0";
+        int hash = name.GetHashCode();
+        int index = Math.Abs(hash) % 6;
+        return $"avatar-bg-{index}";
+    }
 }

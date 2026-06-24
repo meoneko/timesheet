@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using TTMS.Tests.Helpers;
 using TTMS.Web.Models.Entities;
 using TTMS.Web.Models.Enums;
@@ -27,7 +27,7 @@ public class TaskServiceSearchTests
             var sanitizer = new HtmlSanitizationService();
             var time = new TimeConversionService();
             Tasks = new TaskService(ah.Db, ah.Auth, history, time, sanitizer);
-            Projects = new ProjectService(ah.Db, history, ah.Auth, sanitizer, ah.UserManager);
+            Projects = new ProjectService(ah.Db, history, ah.Auth, sanitizer, ah.UserManager, null!);
         }
         public void Dispose() => AuthHarness.Dispose();
     }

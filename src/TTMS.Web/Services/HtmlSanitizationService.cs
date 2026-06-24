@@ -41,9 +41,11 @@ public class HtmlSanitizationService : IHtmlSanitizationService
                 "href", "title", "target", "rel",
                 // Tables need structural attributes for TinyMCE.
                 "colspan", "rowspan",
+                // Images
+                "src", "alt", "width", "height",
             },
-            // Whitelist of URL schemes. Anything else (incl. javascript:, data:, vbscript:) is stripped.
-            AllowedSchemes = new HashSet<string> { "http", "https", "mailto" },
+            // Whitelist of URL schemes. Anything else (incl. javascript:, vbscript:) is stripped.
+            AllowedSchemes = new HashSet<string> { "http", "https", "mailto", "data" },
             // Whitelist of CSS properties for inline styles — keep this minimal to limit CSS-injection.
             AllowedCssProperties = new HashSet<string> { "text-align" },
             // UriAttributes: list every attribute that can carry a URL; needed so javascript: gets stripped.

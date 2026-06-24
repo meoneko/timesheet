@@ -68,9 +68,11 @@
         </ul>
 
         <div class="ttms-side-section-label px-2 mt-3 mb-1 text-uppercase small text-muted">Projects</div>
+        <div id="ttmsRecentProjectsLabel" class="ttms-side-sub-label px-2" style="display: none;"><i class="bi bi-clock-history"></i> Recent</div>
         <ul id="ttmsRecentProjects" class="nav flex-column ttms-side-nav ttms-side-recent" hidden>
             <li class="ttms-side-recent-empty text-muted small px-3" hidden>No recent projects.</li>
         </ul>
+        <div id="ttmsAllProjectsLabel" class="ttms-side-sub-label px-2" style="display: none;"><i class="bi bi-briefcase"></i> My Projects</div>
         <ul class="nav flex-column ttms-side-nav ttms-side-projects" aria-label="Projects you belong to">
             @if (visibleProjects.Count == 0)
             {

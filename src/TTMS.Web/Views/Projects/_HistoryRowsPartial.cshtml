@@ -1,0 +1,32 @@
+@using TTMS.Web.Models.ViewModels
+@using TTMS.Web.Models.Enums
+@model List<HistoryRowViewModel>
+
+@foreach (var h in Model)
+{
+    <tr>
+        <td class="text-muted small">@h.ChangedAt.ToString("yyyy-MM-dd HH:mm")</td>
+        <td>@h.ChangedByName</td>
+        <td><span class="badge bg-light text-dark border">@h.Event</span></td>
+        <td>
+            @if (!string.IsNullOrEmpty(h.OldValue))
+            {
+                <del class="ttms-pd-diff-del text-danger">@h.OldValue</del>
+            }
+            else
+            {
+                <span class="text-muted">—</span>
+            }
+        </td>
+        <td>
+            @if (!string.IsNullOrEmpty(h.NewValue))
+            {
+                <ins class="ttms-pd-diff-ins text-success">@h.NewValue</ins>
+            }
+            else
+            {
+                <span class="text-muted">—</span>
+            }
+        </td>
+    </tr>
+}

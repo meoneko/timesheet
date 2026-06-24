@@ -1,0 +1,171 @@
+/* ===========================================================================
+   Project Detail UI Styles
+   =========================================================================== */
+
+/* KPI Strip Grid */
+.ttms-pd-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+
+@media (max-width: 991.98px) {
+    .ttms-pd-kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 575.98px) {
+    .ttms-pd-kpi-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.ttms-pd-kpi {
+    background: #ffffff;
+    border-radius: 0.5rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ttms-pd-kpi:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08) !important;
+}
+
+.ttms-pd-kpi-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #6c757d;
+    letter-spacing: 0.05em;
+}
+
+.ttms-pd-kpi-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #212529;
+    line-height: 1.2;
+}
+
+.ttms-pd-kpi-meta {
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+
+/* Horizontal Stacked Bar for Task Status Breakdown */
+.ttms-pd-status-bar {
+    display: flex;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    background-color: #e9ecef;
+}
+
+.ttms-pd-status-bar > div {
+    height: 100%;
+}
+
+/* Weekly Activity Rolling Sparkline (7 divs) */
+.ttms-pd-week-bars-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.ttms-pd-week-bars {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    height: 60px;
+    gap: 4px;
+    padding-bottom: 2px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.ttms-pd-week-bars > div {
+    flex: 1;
+    border-radius: 2px 2px 0 0;
+    min-height: 2px;
+    transition: opacity 0.2s ease;
+}
+
+.ttms-pd-week-bars > div:hover {
+    opacity: 0.85;
+}
+
+.ttms-pd-week-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #6c757d;
+    padding-top: 2px;
+}
+
+.ttms-pd-week-labels span {
+    flex: 1;
+    text-align: center;
+}
+
+/* Sticky Tab Bar */
+.ttms-pd-tabs {
+    position: sticky;
+    top: 56px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 1010;
+    margin-top: 0;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 6px -6px rgba(0, 0, 0, 0.1);
+}
+
+/* For browsers where backdrop-filter is not supported */
+@supports not (backdrop-filter: blur(8px)) {
+    .ttms-pd-tabs {
+        background: #ffffff;
+    }
+}
+
+/* Visual Diff Formatting for History */
+ins {
+    background-color: #d1e7dd;
+    color: #0f5132;
+    text-decoration: none;
+    padding: 0.1rem 0.25rem;
+    border-radius: 2px;
+}
+
+del {
+    background-color: #f8d7da;
+    color: #842029;
+    text-decoration: line-through;
+    padding: 0.1rem 0.25rem;
+    border-radius: 2px;
+}
+
+/* Responsive Table Styling */
+.table-responsive {
+    border-radius: 0.375rem;
+    border: 1px solid #dee2e6;
+}
+
+.table th {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    color: #495057;
+}
+
+/* Dropdown Inline Styling in Members/Details */
+.inline-actions {
+    display: inline-block;
+}
+
+/* Project Description Box */
+.project-description {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: #495057;
+}

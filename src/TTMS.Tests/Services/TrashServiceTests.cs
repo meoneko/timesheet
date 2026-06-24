@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using TTMS.Tests.Helpers;
 using TTMS.Web.Models.Entities;
 using TTMS.Web.Models.Enums;
@@ -22,18 +23,27 @@ public class TrashServiceTests
         public TaskService Tasks;
         public TimeEntryService Entries;
         public TrashService Trash;
+        public ServiceProvider ServiceProvider;
         public Harness(AuthorizationServiceHarness ah)
         {
             AuthHarness = ah;
+            var services = new ServiceCollection();
+            services.AddScoped(_ => DbContextFactory.Create(ah.DbName));
+            ServiceProvider = services.BuildServiceProvider();
+
             var history = new HistoryService(ah.Db);
             var sanitizer = new HtmlSanitizationService();
             var time = new TimeConversionService();
-            Projects = new ProjectService(ah.Db, history, ah.Auth, sanitizer, ah.UserManager);
+            Projects = new ProjectService(ah.Db, history, ah.Auth, sanitizer, ah.UserManager, ServiceProvider);
             Tasks = new TaskService(ah.Db, ah.Auth, history, time, sanitizer);
             Entries = new TimeEntryService(ah.Db, history, ah.Auth, sanitizer, time);
             Trash = new TrashService(ah.Db, ah.Auth, Projects, Tasks, Entries);
         }
-        public void Dispose() => AuthHarness.Dispose();
+        public void Dispose()
+        {
+            ServiceProvider.Dispose();
+            AuthHarness.Dispose();
+        }
     }
 
     private static Harness Build()

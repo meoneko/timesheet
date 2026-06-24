@@ -22,10 +22,12 @@ internal sealed class AuthorizationServiceHarness : IDisposable
     public ApplicationDbContext Db { get; }
     public UserManager<ApplicationUser> UserManager { get; }
     public AuthorizationService Auth { get; }
+    public string DbName { get; }
 
-    public AuthorizationServiceHarness()
+    public AuthorizationServiceHarness(string? dbName = null)
     {
-        Db = DbContextFactory.Create();
+        DbName = dbName ?? Guid.NewGuid().ToString("N");
+        Db = DbContextFactory.Create(DbName);
         Db.Database.EnsureCreated();
 
         var store = new UserStore<ApplicationUser>(Db);
@@ -77,7 +79,7 @@ internal sealed class AuthorizationServiceHarness : IDisposable
         var errorDescriber = new IdentityErrorDescriber();
         var logger = LoggerFactory.Create(b => { }).CreateLogger<UserManager<ApplicationUser>>();
         return new UserManager<ApplicationUser>(store, options, passwordHasher, userValidators, pwdValidators,
-            lookupNormalizer, errorDescriber, null /* tokenProviders */, logger);
+            lookupNormalizer, errorDescriber, null! /* tokenProviders */, logger);
     }
 }
 

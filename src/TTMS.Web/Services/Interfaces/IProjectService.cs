@@ -20,7 +20,19 @@ public interface IProjectService
     Task<List<ProjectListItem>> ListVisibleProjectsAsync(string userId, CancellationToken ct = default);
 
     /// <summary>Loads a project with its members for the Details view.</summary>
-    Task<ProjectDetailViewModel?> GetDetailAsync(int projectId, CancellationToken ct = default);
+    Task<ProjectDetailViewModel?> GetDetailAsync(int projectId, string currentUserId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Fetches a paginated, filtered list of history rows for the project's audit trail.
+    /// </summary>
+    Task<List<HistoryRowViewModel>> GetHistoryPageAsync(
+        int projectId,
+        int skip,
+        int take,
+        string? eventFilter = null,
+        string? userFilter = null,
+        string? currentUserId = null,
+        CancellationToken ct = default);
 
     /// <summary>Loads a soft-deleted project for the Restore confirmation page.
     /// Skips the <c>IsDeleted</c> filter and the project-membership visibility checks so the

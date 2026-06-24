@@ -4,72 +4,145 @@
     var isAdmin = (bool)(ViewData["IsAdmin"] ?? false);
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">Projects</h1>
-    <a asp-action="Create" class="btn btn-primary btn-sm">
-        <span aria-hidden="true">+</span> New project
+@functions {
+    private string GetProjectInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "P";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1) return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpper();
+        return (parts[0][0].ToString() + parts[parts.Length - 1][0].ToString()).ToUpper();
+    }
+
+    private string GetProjectAvatarBgClass(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return "avatar-bg-0";
+        var hash = Math.Abs(name.GetHashCode());
+        var index = hash % 6;
+        return $"avatar-bg-{index}";
+    }
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/task-detail.css" asp-append-version="true" />
+    <style>
+        .hover-shadow {
+            transition: all 0.15s ease-in-out;
+        }
+        .hover-shadow:hover {
+            box-shadow: 0 2px 4px rgba(9, 30, 66, 0.08);
+            border-color: #C1C7D0;
+        }
+    </style>
+}
+
+<nav aria-label="breadcrumb" class="ttms-task-breadcrumb">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item active" aria-current="page">Projects</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4 mt-2">
+    <div>
+        <h1 class="h3 mb-0 fw-bold" style="color: #172B4D;">Projects</h1>
+    </div>
+    <a asp-action="Create" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1">
+        <i class="bi bi-plus-lg"></i> New project
     </a>
 </div>
 
 @if (!Model.Any())
 {
-    <div class="alert alert-info">
-        You don't have access to any projects yet.
-        @if (isAdmin)
-        {
-            <text>Create the first project to get started.</text>
-        }
-        else
-        {
-            <text>Ask a project Owner to add you as a member.</text>
-        }
+    <div class="alert alert-info border-0 shadow-sm p-3">
+        <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-info-circle-fill text-info" style="font-size: 1.2rem;"></i>
+            <div>
+                You don't have access to any projects yet.
+                @if (isAdmin)
+                {
+                    <text>Create the first project to get started.</text>
+                }
+                else
+                {
+                    <text>Ask a project Owner to add you as a member.</text>
+                }
+            </div>
+        </div>
     </div>
 }
 else
 {
+    <div class="mb-4 d-flex align-items-center gap-3">
+        <div class="jira-search-wrapper" style="max-width: 280px; flex-grow: 1;">
+            <i class="bi bi-search jira-search-icon"></i>
+            <input type="text" id="projectSearchInput" class="form-control jira-search-input" placeholder="Search projects..." />
+        </div>
+    </div>
+
     <div class="table-responsive">
-        <table class="table table-sm table-hover align-middle">
-            <thead class="table-light">
+        <table class="ttms-task-table">
+            <thead>
                 <tr>
-                    <th>Code</th>
+                    <th style="width: 140px;">Code</th>
                     <th>Name</th>
                     <th>Status</th>
-                    <th class="text-end">Members</th>
-                    <th class="text-end">Open tasks</th>
+                    <th class="text-end" style="width: 120px;">Members</th>
+                    <th class="text-end" style="width: 140px;">Open tasks</th>
                     <th>Your role</th>
-                    <th></th>
+                    <th style="width: 100px;"></th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="projectTableBody">
                 @foreach (var p in Model)
                 {
-                    var roleBadgeClass = p.ViewerRole switch
+                    var statusClass = p.Status switch
                     {
-                        TTMS.Web.Models.Enums.ProjectMemberRole.Owner => "bg-success",
-                        TTMS.Web.Models.Enums.ProjectMemberRole.Member => "bg-primary",
-                        TTMS.Web.Models.Enums.ProjectMemberRole.Viewer => "bg-secondary",
-                        _ => "bg-light text-dark border"
+                        TTMS.Web.Models.Enums.ProjectStatus.Active => "project-status-active",
+                        TTMS.Web.Models.Enums.ProjectStatus.Paused => "project-status-paused",
+                        TTMS.Web.Models.Enums.ProjectStatus.Completed => "project-status-completed",
+                        TTMS.Web.Models.Enums.ProjectStatus.Archived => "project-status-archived",
+                        _ => "project-status-archived"
                     };
-                    var statusBadgeClass = p.Status switch
-                    {
-                        TTMS.Web.Models.Enums.ProjectStatus.Active => "bg-success",
-                        TTMS.Web.Models.Enums.ProjectStatus.Paused => "bg-warning text-dark",
-                        TTMS.Web.Models.Enums.ProjectStatus.Completed => "bg-info text-dark",
-                        TTMS.Web.Models.Enums.ProjectStatus.Archived => "bg-secondary",
-                        _ => "bg-light text-dark border"
-                    };
-                    <tr>
-                        <td><span class="badge bg-light text-dark border">@p.Code</span></td>
+
+                    <tr class="ttms-task-row">
                         <td>
-                            <a asp-action="Details" asp-route-id="@p.Id" class="text-decoration-none">@p.Name</a>
+                            <span style="font-family: monospace; font-size: 0.85rem; font-weight: 600; color: #5E6C84; background-color: #F4F5F7; padding: 4px 8px; border-radius: 3px; border: 1px solid #DFE1E6;">
+                                @p.Code
+                            </span>
                         </td>
-                        <td><span class="badge @statusBadgeClass">@p.Status</span></td>
-                        <td class="text-end">@p.MemberCount</td>
-                        <td class="text-end">@p.OpenTaskCount</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="project-avatar-icon @GetProjectAvatarBgClass(p.Name)" title="@p.Name">
+                                    @GetProjectInitials(p.Name)
+                                </span>
+                                <a asp-action="Details" asp-route-id="@p.Id" class="fw-semibold text-decoration-none project-name-link">
+                                    @p.Name
+                                </a>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="jira-status-badge @statusClass">
+                                @p.Status.ToString()
+                            </span>
+                        </td>
+                        <td class="text-end fw-medium text-dark">
+                            @p.MemberCount
+                        </td>
+                        <td class="text-end fw-medium text-dark">
+                            @p.OpenTaskCount
+                        </td>
                         <td>
                             @if (p.ViewerRole.HasValue)
                             {
-                                <span class="badge @roleBadgeClass">@p.ViewerRole</span>
+                                var roleClass = p.ViewerRole.Value switch
+                                {
+                                    TTMS.Web.Models.Enums.ProjectMemberRole.Owner => "project-role-owner",
+                                    TTMS.Web.Models.Enums.ProjectMemberRole.Member => "project-role-member",
+                                    TTMS.Web.Models.Enums.ProjectMemberRole.Viewer => "project-role-viewer",
+                                    _ => "project-role-viewer"
+                                };
+                                <span class="jira-status-badge @roleClass">
+                                    @p.ViewerRole.ToString()
+                                </span>
                             }
                             else
                             {
@@ -77,11 +150,44 @@ else
                             }
                         </td>
                         <td class="text-end">
-                            <a asp-action="Details" asp-route-id="@p.Id" class="btn btn-sm btn-outline-secondary">Open</a>
+                            <a asp-action="Details" asp-route-id="@p.Id" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 hover-shadow" style="padding: 4px 10px; font-size: 0.8rem; border-radius: 4px;">
+                                Open <i class="bi bi-box-arrow-in-right"></i>
+                            </a>
                         </td>
                     </tr>
                 }
             </tbody>
         </table>
     </div>
+}
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const searchInput = document.getElementById('projectSearchInput');
+            const tableBody = document.getElementById('projectTableBody');
+            
+            if (searchInput && tableBody) {
+                searchInput.addEventListener('input', function () {
+                    const query = searchInput.value.toLowerCase().trim();
+                    const rows = tableBody.getElementsByTagName('tr');
+                    
+                    for (let i = 0; i < rows.length; i++) {
+                        const row = rows[i];
+                        const nameCell = row.querySelector('.project-name-link');
+                        const codeCell = row.querySelector('td:first-child span');
+                        
+                        const nameText = nameCell ? nameCell.textContent.toLowerCase() : '';
+                        const codeText = codeCell ? codeCell.textContent.toLowerCase() : '';
+                        
+                        if (nameText.includes(query) || codeText.includes(query)) {
+                            row.style.display = '';
+                        } else {
+                            row.style.display = 'none';
+                        }
+                    }
+                });
+            }
+        });
+    </script>
 }

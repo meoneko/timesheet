@@ -15,19 +15,22 @@ public class ProjectService : IProjectService
     private readonly IAuthorizationService _authz;
     private readonly IHtmlSanitizationService _sanitizer;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IServiceProvider _serviceProvider;
 
     public ProjectService(
         ApplicationDbContext db,
         IHistoryService history,
         IAuthorizationService authz,
         IHtmlSanitizationService sanitizer,
-        UserManager<ApplicationUser> userManager)
+        UserManager<ApplicationUser> userManager,
+        IServiceProvider serviceProvider)
     {
         _db = db;
         _history = history;
         _authz = authz;
         _sanitizer = sanitizer;
         _userManager = userManager;
+        _serviceProvider = serviceProvider;
     }
 
     // ===========================================================================
@@ -83,47 +86,222 @@ public class ProjectService : IProjectService
         }).ToList();
     }
 
-    public async Task<ProjectDetailViewModel?> GetDetailAsync(int projectId, CancellationToken ct = default)
+    public async Task<ProjectDetailViewModel?> GetDetailAsync(int projectId, string currentUserId, CancellationToken ct = default)
     {
-        var project = await _db.Projects.AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == projectId && !p.IsDeleted, ct);
-        if (project is null) return null;
+        if (string.IsNullOrEmpty(currentUserId)) return null;
 
-        var members = await _db.ProjectMembers.AsNoTracking()
-            .Where(pm => pm.ProjectId == projectId)
-            .Join(_db.Users, pm => pm.UserId, u => u.Id, (pm, u) => new { pm, u })
-            .OrderBy(x => x.u.Email)
-            .Select(x => new ProjectMemberViewModel
+        // 1. Authorization check (rejects non-members before we burn DB cycles on aggregates)
+        var isAdmin = await _authz.IsAdminAsync(currentUserId);
+        if (!isAdmin)
+        {
+            var isMember = await _db.ProjectMembers.AsNoTracking()
+                .AnyAsync(pm => pm.ProjectId == projectId && pm.UserId == currentUserId, ct);
+            if (!isMember) return null;
+        }
+
+        // 2. Fan out into 3 parallel scopes. Each task opens its own DbContext via a new
+        //    DI scope so queries run in parallel without sharing a DbContext (which is NOT
+        //    thread-safe). 3 connections per page load, well within SQL Server's default
+        //    pool ceiling even at 50 concurrent users.
+        var today = DateTime.Today;
+        var daysSinceMonday = ((int)today.DayOfWeek + 6) % 7;
+        var weekStart = today.AddDays(-daysSinceMonday);
+        var sevenDaysAgo = today.AddDays(-6);
+
+        // ---- Task A: Project + Creator ----
+        var projectTask = Task.Run<(Project Project, string CreatorName)?>(async () =>
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var p = await db.Projects.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == projectId && !x.IsDeleted, ct);
+            if (p is null) return null;
+
+            var creator = await db.Users.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == p.CreatedById, ct);
+            var cName = string.IsNullOrWhiteSpace(creator?.FullName) ? (creator?.Email ?? "—") : creator.FullName;
+            return (Project: p, CreatorName: cName);
+        }, ct);
+
+        // ---- Task B: Members ----
+        var membersTask = Task.Run(async () =>
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            return await db.ProjectMembers.AsNoTracking()
+                .Where(pm => pm.ProjectId == projectId)
+                .Join(db.Users, pm => pm.UserId, u => u.Id, (pm, u) => new { pm, u })
+                .OrderBy(x => x.u.Email)
+                .Select(x => new ProjectMemberViewModel
+                {
+                    UserId = x.pm.UserId,
+                    Email = x.u.Email ?? string.Empty,
+                    DisplayName = string.IsNullOrWhiteSpace(x.u.FullName) ? (x.u.Email ?? string.Empty) : x.u.FullName,
+                    Role = x.pm.Role,
+                    JoinedAt = x.pm.JoinedAt,
+                })
+                .ToListAsync(ct);
+        }, ct);
+
+        // ---- Task C: Tasks aggregate + Recent tasks + Last activity ----
+        var tasksTask = Task.Run(async () =>
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            var tasks = await db.TaskItems.AsNoTracking()
+                .Where(t => t.ProjectId == projectId && !t.IsDeleted)
+                .Select(t => t.ItemStatus)
+                .ToListAsync(ct);
+
+            var total = tasks.Count;
+            var open = tasks.Count(s => s != TaskItemStatus.Done && s != TaskItemStatus.Cancelled);
+            var counts = Enum.GetValues<TaskItemStatus>()
+                .ToDictionary(s => s, s => tasks.Count(ts => ts == s));
+
+            var rTasks = await db.TaskItems.AsNoTracking()
+                .Where(t => t.ProjectId == projectId && !t.IsDeleted)
+                .OrderByDescending(t => t.UpdatedAt)
+                .Take(5)
+                .Select(t => new
+                {
+                    t.Id,
+                    t.Title,
+                    AssigneeName = t.Assignee != null ? t.Assignee.FullName : null,
+                    AssigneeEmail = t.Assignee != null ? t.Assignee.Email : null,
+                    t.ItemStatus,
+                    t.DueDate,
+                    TotalMinutes = t.TimeEntries.Where(te => !te.IsDeleted).Sum(te => te.DurationMinutes)
+                })
+                .ToListAsync(ct);
+
+            var recentTasks = rTasks.Select(t => new TaskSummaryItem
             {
-                UserId = x.pm.UserId,
-                Email = x.u.Email ?? string.Empty,
-                DisplayName = string.IsNullOrWhiteSpace(x.u.FullName) ? (x.u.Email ?? string.Empty) : x.u.FullName,
-                Role = x.pm.Role,
-                JoinedAt = x.pm.JoinedAt,
-            })
-            .ToListAsync(ct);
+                Id = t.Id,
+                Title = t.Title,
+                AssigneeName = string.IsNullOrWhiteSpace(t.AssigneeName) ? t.AssigneeEmail : t.AssigneeName,
+                Status = t.ItemStatus,
+                DueDate = t.DueDate,
+                TotalLoggedMinutes = t.TotalMinutes
+            }).ToList();
 
-        var creator = await _userManager.FindByIdAsync(project.CreatedById);
-        var recentHistory = await BuildHistoryAsync("Project", projectId, take: 10, ct);
+            var lastActivity = await GetLastProjectActivityAsync(db, projectId, ct);
 
-        var totalTaskCount = await _db.TaskItems.CountAsync(t => t.ProjectId == projectId && !t.IsDeleted, ct);
-        var openTaskCount = await _db.TaskItems.CountAsync(t => t.ProjectId == projectId && !t.IsDeleted
-            && t.ItemStatus != TaskItemStatus.Done && t.ItemStatus != TaskItemStatus.Cancelled, ct);
+            return (Total: total, Open: open, StatusCounts: counts, RecentTasks: recentTasks, LastActivity: lastActivity);
+        }, ct);
+
+        // ---- Task D: Time entries KPIs ----
+        var timeLoggedTask = Task.Run(async () =>
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            var entries = await db.TimeEntries.AsNoTracking()
+                .Where(e => !e.IsDeleted && e.Task!.ProjectId == projectId)
+                .Select(e => new { e.DurationMinutes, e.WorkDate })
+                .ToListAsync(ct);
+
+            var total = entries.Sum(e => e.DurationMinutes);
+            var thisWeek = entries.Where(e => e.WorkDate >= sevenDaysAgo && e.WorkDate <= today).Sum(e => e.DurationMinutes);
+
+            var calendarWeekMinutes = new List<int>(7);
+            for (int i = 0; i < 7; i++)
+            {
+                var day = weekStart.AddDays(i);
+                calendarWeekMinutes.Add(entries.Where(e => e.WorkDate == day).Sum(e => e.DurationMinutes));
+            }
+
+            return (Total: total, ThisWeek: thisWeek, CalendarWeek: calendarWeekMinutes);
+        }, ct);
+
+        await Task.WhenAll(projectTask, membersTask, tasksTask, timeLoggedTask);
+
+        var projectResult = await projectTask;
+        if (projectResult is null) return null;
+
+        var members = await membersTask;
+        var tStats = await tasksTask;
+        var tLogged = await timeLoggedTask;
+
+        var recentHistory = await BuildHistoryAsync("Project", projectId, take: 5, ct);
 
         return new ProjectDetailViewModel
         {
-            Id = project.Id,
-            Name = project.Name,
-            Code = project.Code,
-            Status = project.Status,
-            DescriptionHtml = project.Description,
-            CreatedAt = project.CreatedAt,
-            CreatedByName = string.IsNullOrWhiteSpace(creator?.FullName) ? (creator?.Email ?? "—") : creator!.FullName,
+            Id = projectResult.Value.Project.Id,
+            Name = projectResult.Value.Project.Name,
+            Code = projectResult.Value.Project.Code,
+            Status = projectResult.Value.Project.Status,
+            DescriptionHtml = projectResult.Value.Project.Description,
+            CreatedAt = projectResult.Value.Project.CreatedAt,
+            CreatedByName = projectResult.Value.CreatorName,
             Members = members,
             RecentHistory = recentHistory,
-            OpenTaskCount = openTaskCount,
-            TotalTaskCount = totalTaskCount,
+            OpenTaskCount = tStats.Open,
+            TotalTaskCount = tStats.Total,
+            TotalTimeLoggedMinutes = tLogged.Total,
+            TimeLoggedMinutesThisWeek = tLogged.ThisWeek,
+            LastActivityAt = tStats.LastActivity,
+            RecentTasks = tStats.RecentTasks,
+            TaskStatusCounts = tStats.StatusCounts,
+            TimeLoggedPerDayThisWeek = tLogged.CalendarWeek
         };
+    }
+
+    public async Task<List<HistoryRowViewModel>> GetHistoryPageAsync(
+        int projectId,
+        int skip,
+        int take,
+        string? eventFilter = null,
+        string? userFilter = null,
+        string? currentUserId = null,
+        CancellationToken ct = default)
+    {
+        if (currentUserId != null)
+        {
+            var isAdmin = await _authz.IsAdminAsync(currentUserId);
+            if (!isAdmin)
+            {
+                var isMember = await _db.ProjectMembers.AnyAsync(pm => pm.ProjectId == projectId && pm.UserId == currentUserId, ct);
+                if (!isMember)
+                {
+                    throw new UnauthorizedAccessException("You do not have access to this project's history.");
+                }
+            }
+        }
+
+        var query = _db.Histories.AsNoTracking()
+            .Where(h => h.Entity == "Project" && h.EntityId == projectId);
+
+        if (!string.IsNullOrWhiteSpace(eventFilter))
+        {
+            if (Enum.TryParse<HistoryEvent>(eventFilter, true, out var eventVal))
+            {
+                query = query.Where(h => h.Event == eventVal);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(userFilter))
+        {
+            query = query.Where(h => h.ChangedById == userFilter);
+        }
+
+        var rows = await query
+            .Join(_db.Users, h => h.ChangedById, u => u.Id, (h, u) => new { h, u })
+            .OrderByDescending(x => x.h.ChangedAt)
+            .Skip(skip)
+            .Take(take)
+            .Select(x => new HistoryRowViewModel
+            {
+                Id = x.h.Id,
+                Event = x.h.Event,
+                ChangedByName = string.IsNullOrWhiteSpace(x.u.FullName) ? (x.u.Email ?? "—") : x.u.FullName,
+                ChangedAt = x.h.ChangedAt,
+                OldValue = x.h.OldValue,
+                NewValue = x.h.NewValue,
+            })
+            .ToListAsync(ct);
+
+        return rows;
     }
 
     public ProjectEditViewModel CreateEditModel()
@@ -345,11 +523,6 @@ public class ProjectService : IProjectService
     /// any user that already holds an Owner membership on the (deleted) project — the Owner
     /// rule is checked by reading ProjectMembers directly with <c>IgnoreQueryFilters</c>,
     /// mirroring the pattern in <see cref="TaskService.RestoreAsync"/>.
-    ///
-    /// Once restored the project's Code and Name become reserved again (the unique indexes
-    /// in ApplicationDbContext are filtered on <c>IsDeleted = 0</c>), so a re-creation that
-    /// races with the restore will fail with a duplicate-code error rather than silently
-    /// overwriting.
     /// </summary>
     public async Task<ServiceResult> RestoreAsync(int projectId, string userId, CancellationToken ct = default)
     {
@@ -364,9 +537,6 @@ public class ProjectService : IProjectService
         var isAdmin = await _authz.IsAdminAsync(userId);
         if (!isAdmin)
         {
-            // Owners of the (deleted) project can restore it. We don't gate on CanManageProjectAsync
-            // because that helper treats deleted projects as invisible; query ProjectMembers
-            // directly for an Owner row on this project id.
             var isOwner = await _db.ProjectMembers.IgnoreQueryFilters()
                 .AnyAsync(pm => pm.ProjectId == projectId
                     && pm.UserId == userId
@@ -536,6 +706,44 @@ public class ProjectService : IProjectService
     // ===========================================================================
     // Private helpers
     // ===========================================================================
+
+    /// <summary>
+    /// Returns the timestamp of the most recent history event affecting the project
+    /// (project-level changes, task changes under this project, and time-entry changes
+    /// under those tasks). Returns null if there is no history at all.
+    /// </summary>
+    /// <remarks>
+    /// Builds three independent queries and takes the maximum. EF Core cannot easily
+    /// express a UNION of three heterogeneous joins, so the per-entity subqueries stay
+    /// readable and the indexes (IX_Tasks_ProjectId_IsDeleted_UpdatedAt and
+    /// IX_TimeEntries_TaskId_WorkDate) keep each leg cheap.
+    /// </remarks>
+    private async Task<DateTime?> GetLastProjectActivityAsync(ApplicationDbContext db, int projectId, CancellationToken ct)
+    {
+        var projectHistAt = await db.Histories.AsNoTracking()
+            .Where(h => h.Entity == "Project" && h.EntityId == projectId)
+            .Select(h => (DateTime?)h.ChangedAt)
+            .DefaultIfEmpty()
+            .MaxAsync(ct);
+
+        var taskHistAt = await db.Histories.AsNoTracking()
+            .Where(h => h.Entity == "Task"
+                && db.TaskItems.Any(t => t.Id == h.EntityId && t.ProjectId == projectId))
+            .Select(h => (DateTime?)h.ChangedAt)
+            .DefaultIfEmpty()
+            .MaxAsync(ct);
+
+        var timeEntryHistAt = await db.Histories.AsNoTracking()
+            .Where(h => h.Entity == "TimeEntry"
+                && db.TimeEntries.Any(te => te.Id == h.EntityId
+                    && te.Task!.ProjectId == projectId))
+            .Select(h => (DateTime?)h.ChangedAt)
+            .DefaultIfEmpty()
+            .MaxAsync(ct);
+
+        var candidates = new[] { projectHistAt, taskHistAt, timeEntryHistAt };
+        return candidates.Max();
+    }
 
     private async Task<List<HistoryRowViewModel>> BuildHistoryAsync(string entity, int entityId, int take, CancellationToken ct)
     {

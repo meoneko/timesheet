@@ -192,3 +192,21 @@
     color: #0a58ca;
 }
 
+.ttms-side-sub-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6c757d;
+    padding: 0.6rem 0.75rem 0.2rem 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    opacity: 0.85;
+}
+
+.ttms-side-sub-label i {
+    font-size: 0.8rem;
+    color: #8c96a0;
+}
+

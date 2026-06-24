@@ -1,5 +1,6 @@
 @model ProjectDetailViewModel
 @using TTMS.Web.Models.Enums
+@using TTMS.Web.Models.ViewModels
 @{
     ViewData["Title"] = $"{Model.Code} — {Model.Name}";
     var canManage = (bool)(ViewData["CanManage"] ?? false);
@@ -11,8 +12,32 @@
         ProjectStatus.Archived => "bg-secondary",
         _ => "bg-light text-dark border"
     };
+
+    var totalTasks = Model.TotalTaskCount;
+    var todoCount = Model.TaskStatusCounts.GetValueOrDefault(TaskItemStatus.Todo, 0);
+    var inProgressCount = Model.TaskStatusCounts.GetValueOrDefault(TaskItemStatus.InProgress, 0);
+    var onHoldCount = Model.TaskStatusCounts.GetValueOrDefault(TaskItemStatus.Pending, 0) + Model.TaskStatusCounts.GetValueOrDefault(TaskItemStatus.Blocked, 0);
+    var doneCount = Model.TaskStatusCounts.GetValueOrDefault(TaskItemStatus.Done, 0);
+    var cancelledCount = Model.TaskStatusCounts.GetValueOrDefault(TaskItemStatus.Cancelled, 0);
+
+    var todoPct = totalTasks > 0 ? (double)todoCount / totalTasks * 100 : 0;
+    var inProgressPct = totalTasks > 0 ? (double)inProgressCount / totalTasks * 100 : 0;
+    var onHoldPct = totalTasks > 0 ? (double)onHoldCount / totalTasks * 100 : 0;
+    var donePct = totalTasks > 0 ? (double)doneCount / totalTasks * 100 : 0;
+    var cancelledPct = totalTasks > 0 ? (double)cancelledCount / totalTasks * 100 : 0;
+
+    var ownerCount = Model.Members.Count(m => m.Role == ProjectMemberRole.Owner);
+    var memberCount = Model.Members.Count(m => m.Role == ProjectMemberRole.Member);
+    var viewerCount = Model.Members.Count(m => m.Role == ProjectMemberRole.Viewer);
+
+    var availableUsers = (List<UserLookupItem>)(ViewData["AvailableUsers"] ?? new List<UserLookupItem>());
 }
 
+@section Styles {
+    <link rel="stylesheet" href="~/css/project-detail.css" asp-append-version="true" />
+}
+
+<!-- BAND 1: Breadcrumb -->
 <nav aria-label="breadcrumb">
     <ol class="breadcrumb small">
         <li class="breadcrumb-item"><a asp-action="Index">Projects</a></li>
@@ -20,78 +45,364 @@
     </ol>
 </nav>
 
-<div class="d-flex justify-content-between align-items-start mb-3">
-    <div>
-        <h1 class="h3 mb-1">
-            <span class="badge bg-light text-dark border me-2 align-middle">@Model.Code</span>
-            @Model.Name
-        </h1>
-        <div class="text-muted small">
-            <span class="badge @statusBadgeClass me-2">@Model.Status</span>
-            @Model.OpenTaskCount of @Model.TotalTaskCount task(s) open
-            · Created @Model.CreatedAt.ToString("yyyy-MM-dd") by @Model.CreatedByName
-            @if (Model.ViewerRole.HasValue)
+<!-- BAND 2: Project Header Card -->
+<div class="card border border-light-subtle shadow-sm mb-4 ttms-pd-header">
+    <div class="card-body">
+        <!-- Identity Row -->
+        <div class="d-flex justify-content-between align-items-start mb-3 ttms-pd-identity">
+            <div>
+                <h1 class="h3 mb-1 align-middle">
+                    <span class="badge bg-light text-dark border me-2 align-middle">@Model.Code</span>
+                    @Model.Name
+                </h1>
+                <div class="text-muted small d-flex flex-wrap gap-2 align-items-center">
+                    <span class="badge @statusBadgeClass">@Model.Status</span>
+                    <span>·</span>
+                    <span>Created @Model.CreatedAt.ToString("yyyy-MM-dd") by @Model.CreatedByName</span>
+                    @if (Model.ViewerRole.HasValue)
+                    {
+                        <span>·</span>
+                        <span>Your role: <strong>@Model.ViewerRole</strong></span>
+                    }
+                </div>
+            </div>
+            
+            <!-- Kebab Dropdown -->
+            <div class="dropdown">
+                <button class="btn btn-link text-muted p-1" type="button" id="projectKebab" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Project actions">
+                    <i class="bi bi-three-dots-vertical" style="font-size: 1.25rem;"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="projectKebab">
+                    <li><button type="button" class="dropdown-item" onclick="window.copyProjectCode('@Model.Code')"><i class="bi bi-clipboard me-2"></i>Copy Code</button></li>
+                    <li><button type="button" class="dropdown-item" onclick="alert('Export functionality is mocked for MVP.')"><i class="bi bi-file-earmark-excel me-2"></i>Export to Excel</button></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- KPI Strip -->
+        <div class="ttms-pd-kpi-grid mb-3">
+            <section class="card ttms-pd-kpi border-light-subtle shadow-sm p-3" aria-labelledby="kpi-tasks">
+                <h2 id="kpi-tasks" class="ttms-pd-kpi-label mb-1">Open Tasks</h2>
+                <div class="ttms-pd-kpi-value">@Model.OpenTaskCount</div>
+                <div class="ttms-pd-kpi-meta">of @Model.TotalTaskCount total</div>
+            </section>
+            
+            <section class="card ttms-pd-kpi border-light-subtle shadow-sm p-3" aria-labelledby="kpi-time-week">
+                <h2 id="kpi-time-week" class="ttms-pd-kpi-label mb-1">Time (7 days)</h2>
+                <div class="ttms-pd-kpi-value">@((Model.TimeLoggedMinutesThisWeek / 60.0).ToString("F1"))h</div>
+                <div class="ttms-pd-kpi-meta">rolling 7 days</div>
+            </section>
+
+            <section class="card ttms-pd-kpi border-light-subtle shadow-sm p-3" aria-labelledby="kpi-time-total">
+                <h2 id="kpi-time-total" class="ttms-pd-kpi-label mb-1">Time (Total)</h2>
+                <div class="ttms-pd-kpi-value">@((Model.TotalTimeLoggedMinutes / 60.0).ToString("F1"))h</div>
+                <div class="ttms-pd-kpi-meta">all-time logged</div>
+            </section>
+
+            <section class="card ttms-pd-kpi border-light-subtle shadow-sm p-3" aria-labelledby="kpi-members" onclick="window.activateProjectTab('members')" style="cursor: pointer;">
+                <h2 id="kpi-members" class="ttms-pd-kpi-label mb-1">Members</h2>
+                <div class="ttms-pd-kpi-value">@Model.Members.Count</div>
+                <div class="ttms-pd-kpi-meta">@ownerCount Owner(s), @memberCount Member(s)</div>
+            </section>
+        </div>
+
+        <!-- Header Actions Row -->
+        <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mt-3">
+            <div class="d-flex gap-2">
+                <a asp-controller="Tasks" asp-action="Create" asp-route-projectId="@Model.Id" class="btn btn-sm btn-primary"><i class="bi bi-plus-lg me-1"></i>New Task</a>
+                <a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@Model.Id" class="btn btn-sm btn-outline-primary"><i class="bi bi-list-task me-1"></i>View Tasks</a>
+            </div>
+            @if (canManage)
             {
-                <span class="ms-2 text-muted">Your role: <strong>@Model.ViewerRole</strong></span>
+                <div class="d-flex gap-2">
+                    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-secondary">Edit Project</a>
+                    <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-danger">Delete</a>
+                </div>
             }
         </div>
     </div>
-    @if (canManage)
-    {
-        <div class="btn-group btn-group-sm">
-            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Edit</a>
-            <a asp-action="Members" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Members</a>
-            <a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@Model.Id" class="btn btn-outline-primary">Tasks</a>
-            <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-outline-danger">Delete</a>
-        </div>
-    }
-    else
-    {
-        <a asp-action="Members" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-secondary">Members</a>
-        <a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@Model.Id" class="btn btn-sm btn-outline-primary ms-1">Tasks</a>
-    }
 </div>
 
-<ul class="nav nav-tabs" role="tablist">
+<!-- BAND 3: Sticky Tab Bar -->
+<ul class="nav nav-tabs ttms-pd-tabs mb-3 px-2 border-bottom" role="tablist" id="projectDetailTabs">
     <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">Overview</button>
+        <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab" aria-selected="true" aria-controls="overview">Overview</button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link" id="members-tab" data-bs-toggle="tab" data-bs-target="#members" type="button" role="tab">Members (@Model.Members.Count)</button>
+        <button class="nav-link" id="members-tab" data-bs-toggle="tab" data-bs-target="#members" type="button" role="tab" aria-selected="false" aria-controls="members">Members (@Model.Members.Count)</button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">History</button>
+        <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab" aria-selected="false" aria-controls="history">History</button>
     </li>
 </ul>
 
-<div class="tab-content border border-top-0 p-3 bg-white">
-    <div class="tab-pane fade show active" id="overview" role="tabpanel">
-        <h6 class="text-uppercase text-muted small">Description</h6>
-        @if (string.IsNullOrWhiteSpace(Model.DescriptionHtml))
-        {
-            <p class="text-muted"><em>No description yet.</em></p>
-        }
-        else
-        {
-            <div class="project-description">@Html.Raw(Model.DescriptionHtml)</div>
-        }
+<!-- BAND 4: Tab Content Panel -->
+<div class="tab-content bg-white p-3 border rounded shadow-sm">
+    
+    <!-- Tab 1: Overview -->
+    <div class="tab-pane fade show active" id="overview" role="tabpanel" aria-labelledby="overview-tab">
+        <div class="row g-4">
+            <!-- Left Column: Description & At a Glance -->
+            <div class="col-lg-8">
+                <section aria-labelledby="section-description" class="mb-4">
+                    <h5 id="section-description" class="text-uppercase text-muted small fw-bold">Description</h5>
+                    @if (string.IsNullOrWhiteSpace(Model.DescriptionHtml))
+                    {
+                        <p class="text-muted">
+                            <em>No description yet.</em>
+                            @if (canManage)
+                            {
+                                <a asp-action="Edit" asp-route-id="@Model.Id" class="ms-1 small">Add one</a>
+                            }
+                        </p>
+                    }
+                    else
+                    {
+                        <div class="project-description p-3 bg-light rounded border border-light-subtle">
+                            @Html.Raw(Model.DescriptionHtml)
+                        </div>
+                    }
+                </section>
+
+                <section aria-labelledby="section-glance" class="mb-4">
+                    <h5 id="section-glance" class="text-uppercase text-muted small fw-bold mb-3">At a Glance</h5>
+                    <div class="row g-3">
+                        <!-- Tasks Breakdown Card -->
+                        <div class="col-md-4">
+                            <div class="card h-100 border border-light-subtle shadow-sm">
+                                <div class="card-body">
+                                    <h6 class="ttms-pd-kpi-label mb-2 text-muted text-uppercase">Tasks Breakdown</h6>
+                                    <div class="ttms-pd-status-bar mb-3">
+                                        @if (totalTasks == 0)
+                                        {
+                                            <div class="bg-light" style="width: 100%;"></div>
+                                        }
+                                        else
+                                        {
+                                            @if (todoCount > 0)
+                                            {
+                                                <div class="bg-secondary" style="width: @(todoPct)%;" title="Todo: @todoCount"></div>
+                                            }
+                                            @if (inProgressCount > 0)
+                                            {
+                                                <div class="bg-primary" style="width: @(inProgressPct)%;" title="In Progress: @inProgressCount"></div>
+                                            }
+                                            @if (onHoldCount > 0)
+                                            {
+                                                <div class="bg-warning" style="width: @(onHoldPct)%;" title="On Hold: @onHoldCount"></div>
+                                            }
+                                            @if (doneCount > 0)
+                                            {
+                                                <div class="bg-success" style="width: @(donePct)%;" title="Done: @doneCount"></div>
+                                            }
+                                            @if (cancelledCount > 0)
+                                            {
+                                                <div class="bg-dark" style="width: @(cancelledPct)%;" title="Cancelled: @cancelledCount"></div>
+                                            }
+                                        }
+                                    </div>
+                                    <div class="small">
+                                        <ul class="list-unstyled mb-0 d-flex flex-wrap gap-2">
+                                            <li><span class="badge bg-secondary me-1">@todoCount</span> Todo</li>
+                                            <li><span class="badge bg-primary me-1">@inProgressCount</span> In Progress</li>
+                                            <li><span class="badge bg-warning text-dark me-1">@onHoldCount</span> On Hold</li>
+                                            <li><span class="badge bg-success me-1">@doneCount</span> Done</li>
+                                            <li><span class="badge bg-dark me-1">@cancelledCount</span> Cancelled</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Weekly Activity Card -->
+                        <div class="col-md-4">
+                            <div class="card h-100 border border-light-subtle shadow-sm">
+                                <div class="card-body d-flex flex-column justify-content-between">
+                                    <div>
+                                        <h6 class="ttms-pd-kpi-label mb-2 text-muted text-uppercase">Weekly Activity</h6>
+                                        <div class="ttms-pd-kpi-meta text-muted small mb-2">Daily logged time (Mon - Sun)</div>
+                                    </div>
+                                    <div class="ttms-pd-week-bars-container mt-auto">
+                                        <div class="ttms-pd-week-bars">
+                                            @for (int i = 0; i < 7; i++)
+                                            {
+                                                var minutes = Model.TimeLoggedPerDayThisWeek[i];
+                                                var hours = minutes / 60.0;
+                                                var maxMinutes = Math.Max(480, Model.TimeLoggedPerDayThisWeek.Any() ? Model.TimeLoggedPerDayThisWeek.Max() : 0);
+                                                var heightPct = maxMinutes > 0 ? (int)((double)minutes / maxMinutes * 100) : 0;
+                                                var dayName = i switch
+                                                {
+                                                    0 => "Mon",
+                                                    1 => "Tue",
+                                                    2 => "Wed",
+                                                    3 => "Thu",
+                                                    4 => "Fri",
+                                                    5 => "Sat",
+                                                    _ => "Sun"
+                                                };
+                                                <div style="height: @(Math.Max(5, heightPct))%;" title="@dayName: @hours.ToString("F1")h" class="bg-primary"></div>
+                                            }
+                                        </div>
+                                        <div class="ttms-pd-week-labels d-flex justify-content-between text-muted small mt-1">
+                                            <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Team Quick View Card -->
+                        <div class="col-md-4">
+                            <div class="card h-100 border border-light-subtle shadow-sm">
+                                <div class="card-body d-flex flex-column justify-content-between">
+                                    <div>
+                                        <h6 class="ttms-pd-kpi-label mb-2 text-muted text-uppercase">Team Roster</h6>
+                                        <div class="ttms-pd-kpi-meta text-muted small mb-3">Quick member overview</div>
+                                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                                            @foreach (var m in Model.Members.Take(5))
+                                            {
+                                                var initials = string.Join("", m.DisplayName.Split(' ').Select(w => w.FirstOrDefault()).Take(2)).ToUpper();
+                                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center text-uppercase fw-bold" style="width: 38px; height: 38px; font-size: 0.85rem;" title="@m.DisplayName (@m.Role)">
+                                                    @initials
+                                                </div>
+                                            }
+                                            @if (Model.Members.Count > 5)
+                                            {
+                                                <div class="rounded-circle bg-light border text-muted d-flex align-items-center justify-content-center" style="width: 38px; height: 38px; font-size: 0.85rem;">
+                                                    +@(Model.Members.Count - 5)
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <button type="button" onclick="window.activateProjectTab('members')" class="btn btn-sm btn-outline-primary w-100">View Roster</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Right Column: Recent Tasks & Recent Activity -->
+            <div class="col-lg-4">
+                <section aria-labelledby="section-recent-tasks" class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 id="section-recent-tasks" class="text-uppercase text-muted small fw-bold mb-0">Recent Tasks</h5>
+                        <a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@Model.Id" class="small">See all</a>
+                    </div>
+                    @if (!Model.RecentTasks.Any())
+                    {
+                        <p class="text-muted small"><em>No tasks yet.</em></p>
+                    }
+                    else
+                    {
+                        <div class="list-group list-group-flush border rounded overflow-hidden shadow-sm">
+                            @foreach (var t in Model.RecentTasks)
+                            {
+                                <a asp-controller="Tasks" asp-action="Details" asp-route-projectId="@Model.Id" asp-route-id="@t.Id" class="list-group-item list-group-item-action p-2">
+                                    <div class="d-flex w-100 justify-content-between align-items-center">
+                                        <span class="fw-semibold text-truncate small" style="max-width: 70%;">@t.Title</span>
+                                        <span class="badge bg-light text-dark border small">@t.Status</span>
+                                    </div>
+                                    <div class="d-flex w-100 justify-content-between text-muted small mt-1" style="font-size: 0.75rem;">
+                                        <span>Assignee: @(string.IsNullOrWhiteSpace(t.AssigneeName) ? "Unassigned" : t.AssigneeName)</span>
+                                        <span>@((t.TotalLoggedMinutes / 60.0).ToString("F1"))h logged</span>
+                                    </div>
+                                </a>
+                            }
+                        </div>
+                    }
+                </section>
+
+                <section aria-labelledby="section-recent-activity">
+                    <h5 id="section-recent-activity" class="text-uppercase text-muted small fw-bold mb-2">Recent Activity</h5>
+                    @if (!Model.RecentHistory.Any())
+                    {
+                        <p class="text-muted small"><em>No history yet.</em></p>
+                    }
+                    else
+                    {
+                        <div class="list-group list-group-flush border rounded overflow-hidden shadow-sm">
+                            @foreach (var h in Model.RecentHistory.Take(5))
+                            {
+                                <div class="list-group-item p-2 small">
+                                    <div class="d-flex justify-content-between text-muted" style="font-size: 0.75rem;">
+                                        <span>@h.ChangedByName</span>
+                                        <span>@h.ChangedAt.ToString("MM-dd HH:mm")</span>
+                                    </div>
+                                    <div class="mt-1">
+                                        <span class="badge bg-light text-dark border me-1" style="font-size: 0.7rem;">@h.Event</span>
+                                        <span class="text-muted" style="font-size: 0.75rem;">
+                                            @if (!string.IsNullOrEmpty(h.NewValue))
+                                            {
+                                                <span>to: <strong class="text-dark">@h.NewValue</strong></span>
+                                            }
+                                        </span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </section>
+            </div>
+        </div>
     </div>
 
-    <div class="tab-pane fade" id="members" role="tabpanel">
+    <!-- Tab 2: Members -->
+    <div class="tab-pane fade" id="members" role="tabpanel" aria-labelledby="members-tab">
+        <!-- Add Member Inline Form -->
+        @if (canManage)
+        {
+            <div class="card border border-light-subtle shadow-sm mb-4">
+                <div class="card-body p-3">
+                    <h6 class="card-title text-muted text-uppercase small fw-bold mb-3">Add Team Member</h6>
+                    <form asp-action="AddMember" asp-route-id="@Model.Id" method="post" class="row g-2 align-items-center">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                        <div class="col-md-6 col-sm-12">
+                            <select name="UserId" class="form-select form-select-sm" required>
+                                <option value="" disabled selected>-- Choose User --</option>
+                                @foreach (var u in availableUsers)
+                                {
+                                    <option value="@u.Id">@u.Display</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <select name="Role" class="form-select form-select-sm" required>
+                                <option value="Viewer">Viewer</option>
+                                <option value="Member" selected>Member</option>
+                                <option value="Owner">Owner</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-person-plus me-1"></i>Add Member</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        }
+
+        <!-- Members Table -->
         @if (!Model.Members.Any())
         {
-            <p class="text-muted"><em>No members.</em></p>
+            <p class="text-muted"><em>No members on this project.</em></p>
         }
         else
         {
             <div class="table-responsive">
-                <table class="table table-sm align-middle mb-0">
+                <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
                             <th>Name</th>
                             <th>Email</th>
                             <th>Role</th>
                             <th>Joined</th>
+                            @if (canManage)
+                            {
+                                <th class="text-end">Actions</th>
+                            }
                         </tr>
                     </thead>
                     <tbody>
@@ -105,7 +416,7 @@
                                 _ => "bg-light text-dark border"
                             };
                             <tr>
-                                <td>
+                                <td class="fw-semibold">
                                     @m.DisplayName
                                     @if (m.IsCurrentUser)
                                     {
@@ -115,51 +426,152 @@
                                 <td class="text-muted small">@m.Email</td>
                                 <td><span class="badge @roleBadgeClass">@m.Role</span></td>
                                 <td class="text-muted small">@m.JoinedAt.ToString("yyyy-MM-dd")</td>
+                                @if (canManage)
+                                {
+                                    <td class="text-end">
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                Manage
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                @if (m.Role != ProjectMemberRole.Owner)
+                                                {
+                                                    <li>
+                                                        <form asp-action="ChangeRole" asp-route-id="@Model.Id" method="post">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="userId" value="@m.UserId" />
+                                                            <input type="hidden" name="newRole" value="Owner" />
+                                                            <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                                            <button type="submit" class="dropdown-item">Make Owner</button>
+                                                        </form>
+                                                    </li>
+                                                }
+                                                @if (m.Role != ProjectMemberRole.Member)
+                                                {
+                                                    <li>
+                                                        @if (m.Role == ProjectMemberRole.Owner && ownerCount == 1)
+                                                        {
+                                                            <button type="button" class="dropdown-item disabled text-muted" title="Cannot demote the last Owner of a project">Demote (Last Owner)</button>
+                                                        }
+                                                        else
+                                                        {
+                                                            <form asp-action="ChangeRole" asp-route-id="@Model.Id" method="post">
+                                                                @Html.AntiForgeryToken()
+                                                                <input type="hidden" name="userId" value="@m.UserId" />
+                                                                <input type="hidden" name="newRole" value="Member" />
+                                                                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                                                <button type="submit" class="dropdown-item">Make Member</button>
+                                                            </form>
+                                                        }
+                                                    </li>
+                                                }
+                                                @if (m.Role != ProjectMemberRole.Viewer)
+                                                {
+                                                    <li>
+                                                        @if (m.Role == ProjectMemberRole.Owner && ownerCount == 1)
+                                                        {
+                                                            <button type="button" class="dropdown-item disabled text-muted" title="Cannot demote the last Owner of a project">Demote (Last Owner)</button>
+                                                        }
+                                                        else
+                                                        {
+                                                            <form asp-action="ChangeRole" asp-route-id="@Model.Id" method="post">
+                                                                @Html.AntiForgeryToken()
+                                                                <input type="hidden" name="userId" value="@m.UserId" />
+                                                                <input type="hidden" name="newRole" value="Viewer" />
+                                                                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                                                <button type="submit" class="dropdown-item">Make Viewer</button>
+                                                            </form>
+                                                        }
+                                                    </li>
+                                                }
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li>
+                                                    @if (m.Role == ProjectMemberRole.Owner && ownerCount == 1)
+                                                    {
+                                                        <button type="button" class="dropdown-item disabled text-muted" title="Cannot remove the last Owner of a project">Remove (Last Owner)</button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <form asp-action="RemoveMember" asp-route-id="@Model.Id" method="post" onsubmit="return confirm('Are you sure you want to remove this member?');">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="userId" value="@m.UserId" />
+                                                            <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                                            <button type="submit" class="dropdown-item text-danger">Remove</button>
+                                                        </form>
+                                                    }
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </td>
+                                }
                             </tr>
                         }
                     </tbody>
                 </table>
-            </div>
-            <div class="mt-2">
-                <a asp-action="Members" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-secondary">
-                    Manage members
-                </a>
             </div>
         }
     </div>
 
-    <div class="tab-pane fade" id="history" role="tabpanel">
-        @if (!Model.RecentHistory.Any())
-        {
-            <p class="text-muted"><em>No history yet.</em></p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-sm align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>When</th>
-                            <th>Who</th>
-                            <th>Event</th>
-                            <th>Old</th>
-                            <th>New</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var h in Model.RecentHistory)
-                        {
-                            <tr>
-                                <td class="text-muted small">@h.ChangedAt.ToString("yyyy-MM-dd HH:mm")</td>
-                                <td>@h.ChangedByName</td>
-                                <td><span class="badge bg-light text-dark border">@h.Event</span></td>
-                                <td class="text-muted small">@h.OldValue</td>
-                                <td class="text-muted small">@h.NewValue</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+    <!-- Tab 3: History -->
+    <div class="tab-pane fade" id="history" role="tabpanel" aria-labelledby="history-tab">
+        <!-- History Filters -->
+        <div class="row g-2 mb-3 align-items-center">
+            <div class="col-md-4 col-sm-6">
+                <label for="historyEventFilter" class="visually-hidden">Event</label>
+                <select id="historyEventFilter" class="form-select form-select-sm">
+                    <option value="">All events</option>
+                    @foreach (var e in Enum.GetValues<HistoryEvent>())
+                    {
+                        <option value="@e">@e</option>
+                    }
+                </select>
             </div>
-        }
+            <div class="col-md-4 col-sm-6">
+                <label for="historyUserFilter" class="visually-hidden">User</label>
+                <select id="historyUserFilter" class="form-select form-select-sm">
+                    <option value="">All users</option>
+                    @foreach (var m in Model.Members)
+                    {
+                        <option value="@m.UserId">@m.DisplayName</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4 col-sm-12 text-md-end text-muted small" id="historyCounter">
+                Showing @Model.RecentHistory.Count rows
+            </div>
+        </div>
+
+        <!-- History Table -->
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-3" id="historyTable">
+                <thead class="table-light">
+                    <tr>
+                        <th>When</th>
+                        <th>Who</th>
+                        <th>Event</th>
+                        <th>Old</th>
+                        <th>New</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody">
+                    <partial name="_HistoryRowsPartial" model="Model.RecentHistory" />
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Load More Button -->
+        <div class="text-center" id="loadMoreContainer">
+            @if (Model.RecentHistory.Count >= 5)
+            {
+                <button type="button" class="btn btn-sm btn-outline-primary px-4" id="btnLoadMoreHistory">
+                    Load more
+                </button>
+            }
+            <div id="noMoreHistory" class="text-muted small mt-2" style="display: none;">No more history to load.</div>
+        </div>
     </div>
 </div>
+
+@section Scripts {
+    <script src="~/js/project-detail.js" asp-append-version="true"></script>
+}

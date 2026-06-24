@@ -223,6 +223,34 @@ public class TasksController : Controller
     }
 
     // ===========================================================================
+    // Quick Status Update (POST from the Task Details page)
+    // ===========================================================================
+
+    [HttpPost("{id:int}/ChangeStatus")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangeStatus(int projectId, int id, [FromForm] TaskItemStatus status, CancellationToken ct)
+    {
+        if (!await _authz.CanEditTaskAsync(CurrentUserId(), id))
+            return Forbid();
+
+        var editModel = await _tasks.BuildEditModelAsync(id, CurrentUserId(), ct);
+        if (editModel is null || editModel.ProjectId != projectId) return NotFound();
+
+        editModel.Status = status;
+        var result = await _tasks.UpdateAsync(id, editModel, CurrentUserId(), ct);
+        if (!result.Succeeded)
+        {
+            TempData["ErrorMessage"] = result.Error ?? "Could not update task status.";
+        }
+        else
+        {
+            TempData["StatusMessage"] = $"Task status updated to {status}.";
+        }
+
+        return RedirectToAction(nameof(Details), new { projectId, id });
+    }
+
+    // ===========================================================================
     // Private helpers
     // ===========================================================================
 

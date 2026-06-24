@@ -1,13 +1,16 @@
 @using TTMS.Web.Models.Enums
 @model TaskPriority
 @{
-    var badgeClass = Model switch
+    var (iconClass, colorClass, label) = Model switch
     {
-        TaskPriority.Low => "bg-light text-dark border",
-        TaskPriority.Medium => "bg-info text-dark",
-        TaskPriority.High => "bg-warning text-dark",
-        TaskPriority.Critical => "bg-danger",
-        _ => "bg-light text-dark border"
+        TaskPriority.Low => ("bi-chevron-down", "text-primary", "Low"),
+        TaskPriority.Medium => ("bi-chevron-up", "text-warning", "Medium"),
+        TaskPriority.High => ("bi-chevron-up", "text-danger", "High"),
+        TaskPriority.Critical => ("bi-chevron-double-up", "text-danger fw-bold", "Critical"),
+        _ => ("bi-dash", "text-secondary", "None")
     };
 }
-<span class="badge @badgeClass">@Model</span>
+<span class="jira-priority-icon d-inline-flex align-items-center gap-1" title="Priority: @label">
+    <i class="bi @iconClass @colorClass" aria-hidden="true"></i>
+    <span class="small text-muted">@label</span>
+</span>

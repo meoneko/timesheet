@@ -1,4 +1,4 @@
-﻿// Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
+// Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
 // for details on configuring this project to bundle and minify static web assets.
 
 // ===========================================================================
@@ -41,11 +41,17 @@
         var list = document.getElementById('ttmsRecentProjects');
         if (!list) return;
         var items = readRecent();
+        var recentLabel = document.getElementById('ttmsRecentProjectsLabel');
+        var allLabel = document.getElementById('ttmsAllProjectsLabel');
         if (items.length === 0) {
             list.hidden = true;
+            if (recentLabel) recentLabel.style.display = 'none';
+            if (allLabel) allLabel.style.display = 'none';
             return;
         }
         list.hidden = false;
+        if (recentLabel) recentLabel.style.display = 'flex';
+        if (allLabel) allLabel.style.display = 'flex';
         // Clear existing dynamic rows (keep the empty-state marker hidden).
         list.innerHTML = '';
         items.forEach(function (p) {

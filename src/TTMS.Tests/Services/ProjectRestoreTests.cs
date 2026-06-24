@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using TTMS.Tests.Helpers;
 using TTMS.Web.Models.Entities;
 using TTMS.Web.Models.Enums;
@@ -25,17 +26,27 @@ public class ProjectRestoreTests
     {
         public AuthorizationServiceHarness AuthHarness;
         public ProjectService Projects;
+        public ServiceProvider ServiceProvider;
         public Harness(AuthorizationServiceHarness ah)
         {
             AuthHarness = ah;
+            var services = new ServiceCollection();
+            services.AddScoped(_ => DbContextFactory.Create(ah.DbName));
+            ServiceProvider = services.BuildServiceProvider();
+
             Projects = new ProjectService(
                 ah.Db,
                 new HistoryService(ah.Db),
                 ah.Auth,
                 new HtmlSanitizationService(),
-                ah.UserManager);
+                ah.UserManager,
+                ServiceProvider);
         }
-        public void Dispose() => AuthHarness.Dispose();
+        public void Dispose()
+        {
+            ServiceProvider.Dispose();
+            AuthHarness.Dispose();
+        }
     }
 
     private static Harness Build()

@@ -141,7 +141,7 @@ public class FileStorageServiceTests : IDisposable
 
         // Should land in tasks/1/, NOT escape to parent.
         Assert.StartsWith("tasks/1/", relative.Replace('\\', '/'));
-        Assert.False(relative.Contains(".."));
+        Assert.DoesNotContain("..", relative);
         Assert.True(File.Exists(_svc.ResolveAbsolutePath(relative)));
     }
 
@@ -190,8 +190,8 @@ public class FileStorageServiceTests : IDisposable
     {
         var abs = _svc.ResolveAbsolutePath("tasks/1/log.txt");
         Assert.NotNull(abs);
-        Assert.True(abs!.EndsWith(Path.Combine("uploads", "tasks", "1", "log.txt"),
-            StringComparison.OrdinalIgnoreCase));
+        Assert.EndsWith(Path.Combine("uploads", "tasks", "1", "log.txt"), abs,
+            StringComparison.OrdinalIgnoreCase);
     }
 
     // ---- DeleteAsync ----

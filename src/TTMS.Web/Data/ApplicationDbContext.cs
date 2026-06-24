@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using TTMS.Web.Models.Entities;
 using TTMS.Web.Models.Enums;
@@ -64,6 +64,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.HasIndex(t => t.AssigneeId);
             e.HasIndex(t => t.ItemStatus);
             e.HasIndex(t => t.IsDeleted);
+            e.HasIndex(t => new { t.ProjectId, t.IsDeleted, t.UpdatedAt });
             e.HasOne(t => t.Project).WithMany(p => p.Tasks).HasForeignKey(t => t.ProjectId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(t => t.Assignee).WithMany().HasForeignKey(t => t.AssigneeId).OnDelete(DeleteBehavior.Restrict);
         });
@@ -78,6 +79,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.HasIndex(te => te.UserId);
             e.HasIndex(te => te.WorkDate);
             e.HasIndex(te => te.IsDeleted);
+            e.HasIndex(te => new { te.TaskId, te.WorkDate });
             e.HasOne(te => te.Task).WithMany(t => t.TimeEntries).HasForeignKey(te => te.TaskId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(te => te.User).WithMany().HasForeignKey(te => te.UserId).OnDelete(DeleteBehavior.Restrict);
         });
