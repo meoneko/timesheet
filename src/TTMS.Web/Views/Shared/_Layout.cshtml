@@ -38,7 +38,7 @@
                 </nav>
     </header>
             <div class="container-fluid ttms-content">
-        <main role="main" class="pb-3">
+        <main role="main">
             @if (TempData["StatusMessage"] is string ok)
             {
                 <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -55,13 +55,12 @@
             }
             @RenderBody()
         </main>
+        <footer class="border-top footer text-muted mt-auto">
+            <div class="container-fluid">
+                &copy; @DateTime.UtcNow.Year - TTMS
+            </div>
+        </footer>
     </div>
-    <footer class="border-top footer text-muted">
-                <div class="container-fluid">
-            &copy; @DateTime.UtcNow.Year - TTMS
-        </div>
-    </footer>
-        </div>
     </div>
 }
 else
@@ -75,7 +74,7 @@ else
         </nav>
     </header>
     <div class="container">
-        <main role="main" class="pb-3">
+        <main role="main">
             @RenderBody()
         </main>
     </div>

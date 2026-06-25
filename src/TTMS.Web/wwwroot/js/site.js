@@ -59,7 +59,7 @@
             li.className = 'nav-item';
             var a = document.createElement('a');
             a.className = 'nav-link';
-            a.href = '/Projects/' + encodeURIComponent(p.id);
+            a.href = '/Projects/Details/' + encodeURIComponent(p.id);
             a.title = p.code + ' — ' + p.name;
             var badge = document.createElement('span');
             badge.className = 'badge bg-light text-dark border ttms-side-code';

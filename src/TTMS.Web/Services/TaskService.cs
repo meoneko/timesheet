@@ -259,6 +259,8 @@ public class TaskService : ITaskService
                 t.EstimatedHours,
                 t.DueDate,
                 t.CreatedAt,
+                t.BlockedReason,
+                t.UpdatedAt,
             })
             .FirstOrDefaultAsync(ct);
 
@@ -350,6 +352,8 @@ public class TaskService : ITaskService
             ViewerCanDelete = await _authz.CanDeleteTaskAsync(userId, taskId),
             ViewerCanLogTime = await _authz.CanLogTimeAsync(userId, taskId),
             ViewerCanUploadAttachment = await _authz.CanEditTaskAsync(userId, taskId),
+            BlockedReason = task.BlockedReason,
+            RowVersion = task.UpdatedAt.Ticks,
         };
     }
 
@@ -622,6 +626,227 @@ public class TaskService : ITaskService
                 NewValue = x.h.NewValue,
             })
             .ToListAsync(ct);
+    }
+
+    public async Task<TaskBoardViewModel> GetBoardAsync(int projectId, TaskFilterViewModel filter, string userId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(userId))
+            throw new UnauthorizedAccessException();
+
+        var project = await _db.Projects.AsNoTracking().FirstOrDefaultAsync(p => p.Id == projectId, ct);
+        if (project is null)
+            throw new KeyNotFoundException($"Project {projectId} not found.");
+
+        if (!await _authz.CanViewProjectAsync(userId, projectId))
+            throw new UnauthorizedAccessException("You do not have access to this project.");
+
+        var projectRole = await _authz.GetProjectRoleAsync(userId, projectId);
+        var isAdmin = await _authz.IsAdminAsync(userId);
+        var projectActive = project.Status == ProjectStatus.Active;
+
+        var query = _db.TaskItems.AsNoTracking().Where(t => t.ProjectId == projectId && !t.IsDeleted);
+
+        var f = filter ?? new TaskFilterViewModel();
+
+        if (!string.IsNullOrWhiteSpace(f.AssigneeId))
+            query = query.Where(t => t.AssigneeId == f.AssigneeId);
+
+        if (f.Statuses is { Count: > 0 })
+        {
+            var statuses = f.Statuses.Distinct().ToList();
+            query = query.Where(t => statuses.Contains(t.ItemStatus));
+        }
+
+        if (f.Priorities is { Count: > 0 })
+        {
+            var priorities = f.Priorities.Distinct().ToList();
+            query = query.Where(t => priorities.Contains(t.Priority));
+        }
+
+        if (f.CreatedFrom.HasValue)
+        {
+            var fromUtc = f.CreatedFrom.Value.Date;
+            query = query.Where(t => t.CreatedAt >= fromUtc);
+        }
+
+        if (f.CreatedTo.HasValue)
+        {
+            var toExclusive = f.CreatedTo.Value.Date.AddDays(1);
+            query = query.Where(t => t.CreatedAt < toExclusive);
+        }
+
+        if (!string.IsNullOrWhiteSpace(f.Text))
+        {
+            var needle = f.Text.Trim().ToLower();
+            query = query.Where(t =>
+                t.Title.ToLower().Contains(needle)
+                || (t.DescriptionText != null && t.DescriptionText.ToLower().Contains(needle)));
+        }
+
+        var now = DateTime.UtcNow;
+        query = query
+            .OrderByDescending(t => t.DueDate != null && t.DueDate < now && t.ItemStatus != TaskItemStatus.Done && t.ItemStatus != TaskItemStatus.Cancelled)
+            .ThenByDescending(t => t.Priority)
+            .ThenBy(t => t.DueDate)
+            .ThenByDescending(t => t.UpdatedAt);
+
+        var tasks = await query
+            .Take(201)
+            .Select(t => new
+            {
+                t.Id,
+                t.Title,
+                t.ItemStatus,
+                t.Priority,
+                t.EstimatedHours,
+                t.DueDate,
+                t.BlockedReason,
+                t.AssigneeId,
+                AssigneeFullName = t.Assignee!.FullName ?? string.Empty,
+                AssigneeEmail = t.Assignee!.Email ?? string.Empty,
+                t.UpdatedAt
+            })
+            .ToListAsync(ct);
+
+        var isTruncated = tasks.Count > 200;
+        var displayTasks = tasks.Take(200).ToList();
+
+        var taskIds = displayTasks.Select(t => t.Id).ToList();
+        var aggregates = await _db.TimeEntries.AsNoTracking()
+            .Where(e => !e.IsDeleted && taskIds.Contains(e.TaskId))
+            .GroupBy(e => e.TaskId)
+            .Select(g => new
+            {
+                TaskId = g.Key,
+                TotalMinutes = g.Sum(e => (int?)e.DurationMinutes) ?? 0
+            })
+            .ToDictionaryAsync(g => g.TaskId, g => g.TotalMinutes, ct);
+
+        var cards = displayTasks.Select(t =>
+        {
+            var totalMinutes = aggregates.GetValueOrDefault(t.Id);
+            var card = new TaskCardViewModel
+            {
+                Id = t.Id,
+                Key = $"{project.Code}-{t.Id}",
+                Title = t.Title,
+                Status = t.ItemStatus,
+                Priority = t.Priority,
+                DueDate = t.DueDate,
+                EstimatedHours = t.EstimatedHours,
+                ActualHours = _time.MinutesToHours(totalMinutes),
+                BlockedReason = t.BlockedReason,
+                AssigneeId = t.AssigneeId,
+                AssigneeName = string.IsNullOrWhiteSpace(t.AssigneeFullName) ? t.AssigneeEmail : t.AssigneeFullName,
+                UpdatedAt = t.UpdatedAt,
+                RowVersion = t.UpdatedAt.Ticks
+            };
+
+            card.CanEdit = projectActive && (isAdmin || projectRole == ProjectMemberRole.Owner || card.AssigneeId == userId);
+            return card;
+        }).ToList();
+
+        var statusesList = Enum.GetValues(typeof(TaskItemStatus)).Cast<TaskItemStatus>().ToList();
+        var columns = statusesList.Select(status => new TaskBoardColumnViewModel
+        {
+            Status = status,
+            DisplayName = status.ToString(),
+            Cards = cards.Where(c => c.Status == status).ToList()
+        }).ToList();
+
+        return new TaskBoardViewModel
+        {
+            ProjectId = project.Id,
+            ProjectCode = project.Code,
+            ProjectName = project.Name,
+            IsTruncated = isTruncated,
+            Filter = f,
+            Columns = columns
+        };
+    }
+
+    public async Task<TaskStatusChangeResult> ChangeStatusAjaxAsync(int taskId, TaskItemStatus targetStatus, string? blockedReason, long rowVersionTicks, string userId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(userId))
+            return TaskStatusChangeResult.Fail("User is required.", "NoUser");
+
+        var task = await _db.TaskItems.FirstOrDefaultAsync(t => t.Id == taskId && !t.IsDeleted, ct);
+        if (task is null)
+            return TaskStatusChangeResult.Fail("Task not found.", "NotFound");
+
+        var project = await _db.Projects.AsNoTracking().FirstOrDefaultAsync(p => p.Id == task.ProjectId, ct);
+        if (project is null)
+            return TaskStatusChangeResult.Fail("Project not found.", "NotFound");
+
+        if (project.Status != ProjectStatus.Active)
+            return TaskStatusChangeResult.Fail($"Project '{project.Code}' is not active; status changes are not allowed.", "ProjectNotActive");
+
+        var isAdmin = await _authz.IsAdminAsync(userId);
+        var projectRole = await _authz.GetProjectRoleAsync(userId, task.ProjectId);
+        var canEdit = isAdmin || projectRole == ProjectMemberRole.Owner || task.AssigneeId == userId;
+        if (!canEdit)
+            return TaskStatusChangeResult.Fail("You do not have permission to edit this task.", "Forbidden");
+
+        if (!Enum.IsDefined(typeof(TaskItemStatus), targetStatus))
+            return TaskStatusChangeResult.Fail("Invalid task status.", "ValidationError");
+
+        if (task.UpdatedAt.Ticks != rowVersionTicks)
+            return TaskStatusChangeResult.Fail("Task has already been updated by another user.", "ConcurrencyConflict");
+
+        if (targetStatus == TaskItemStatus.Blocked)
+        {
+            if (string.IsNullOrWhiteSpace(blockedReason))
+                return TaskStatusChangeResult.Fail("A reason is required when blocking a task.", "ValidationError");
+
+            var trimmedReason = blockedReason.Trim();
+            if (trimmedReason.Length > 500)
+                return TaskStatusChangeResult.Fail("Blocked reason cannot exceed 500 characters.", "ValidationError");
+
+            task.BlockedReason = trimmedReason;
+        }
+        else
+        {
+            task.BlockedReason = null;
+        }
+
+        var oldStatus = task.ItemStatus;
+        task.ItemStatus = targetStatus;
+        task.UpdatedAt = DateTime.UtcNow;
+
+        _history.LogTask(task.Id, HistoryEvent.StatusChanged, userId,
+            oldValue: oldStatus.ToString(),
+            newValue: task.ItemStatus.ToString());
+
+        await _db.SaveChangesAsync(ct);
+
+        var assignee = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == task.AssigneeId, ct);
+        var assigneeName = assignee != null
+            ? (string.IsNullOrWhiteSpace(assignee.FullName) ? assignee.Email : assignee.FullName)
+            : string.Empty;
+
+        var totalMinutes = await _db.TimeEntries.AsNoTracking()
+            .Where(e => !e.IsDeleted && e.TaskId == task.Id)
+            .SumAsync(e => (int?)e.DurationMinutes, ct) ?? 0;
+
+        var card = new TaskCardViewModel
+        {
+            Id = task.Id,
+            Key = $"{project.Code}-{task.Id}",
+            Title = task.Title,
+            Status = task.ItemStatus,
+            Priority = task.Priority,
+            DueDate = task.DueDate,
+            EstimatedHours = task.EstimatedHours,
+            ActualHours = _time.MinutesToHours(totalMinutes),
+            BlockedReason = task.BlockedReason,
+            AssigneeId = task.AssigneeId,
+            AssigneeName = assigneeName ?? string.Empty,
+            UpdatedAt = task.UpdatedAt,
+            RowVersion = task.UpdatedAt.Ticks,
+            CanEdit = true
+        };
+
+        return TaskStatusChangeResult.Success(card);
     }
 
     private static SelectList BuildStatusOptions(TaskItemStatus selected)

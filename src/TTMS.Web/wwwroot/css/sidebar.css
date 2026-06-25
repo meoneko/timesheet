@@ -7,15 +7,19 @@
 
 .ttms-app {
     display: flex;
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
 }
+
 
 .ttms-main {
     flex: 1 1 auto;
     min-width: 0; /* prevent flex children from forcing horizontal scroll */
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
+
 
 /* ---- Top bar ---- */
 .ttms-topbar {
@@ -172,12 +176,29 @@
 /* ---- Content ---- */
 .ttms-content {
     flex: 1 1 auto;
-    padding: 1rem 1.25rem 2rem;
+    min-height: 0;
+    padding: 1rem 1.25rem 0;
+    overflow-y: auto;   /* normal pages scroll here, not the body */
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 @media (max-width: 575.98px) {
-    .ttms-content { padding: 0.75rem 0.75rem 1.5rem; }
+    .ttms-content { padding: 0.75rem 0.75rem 0; }
 }
+
+/* Main content area grows to push footer down */
+.ttms-content > main[role="main"] {
+    flex: 1 1 auto;
+    padding-bottom: 1.5rem;
+}
+
+/* Thin scrollbar for content area */
+.ttms-content::-webkit-scrollbar { width: 6px; }
+.ttms-content::-webkit-scrollbar-track { background: #f1f1f1; }
+.ttms-content::-webkit-scrollbar-thumb { background: #c1c7d0; border-radius: 3px; }
+.ttms-content::-webkit-scrollbar-thumb:hover { background: #a1a7b0; }
 
 /* Keyboard focus ring (do not strip). */
 .ttms-sidebar .nav-link:focus-visible {

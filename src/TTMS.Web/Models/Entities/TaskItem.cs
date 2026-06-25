@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using TTMS.Web.Models.Enums;
 
 namespace TTMS.Web.Models.Entities;
@@ -41,6 +41,8 @@ public class TaskItem
     // --- Soft delete ---
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAt { get; set; }
+
+    public string? BlockedReason { get; set; }
 
     // --- Navigation ---
     public ICollection<TimeEntry> TimeEntries { get; set; } = new List<TimeEntry>();

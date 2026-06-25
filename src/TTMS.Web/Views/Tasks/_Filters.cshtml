@@ -70,6 +70,10 @@
     </div>
     
     <input type="hidden" name="ProjectId" value="@Model.ProjectId" />
+    @if (!string.IsNullOrEmpty(ViewContext.HttpContext.Request.Query["view"]))
+    {
+        <input type="hidden" name="view" value="@ViewContext.HttpContext.Request.Query["view"]" />
+    }
 </form>
 
 <script>

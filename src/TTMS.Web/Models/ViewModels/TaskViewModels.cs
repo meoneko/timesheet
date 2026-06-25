@@ -119,6 +119,9 @@ public class TaskDetailViewModel
     public bool ViewerCanDelete { get; set; }
     public bool ViewerCanLogTime { get; set; }
     public bool ViewerCanUploadAttachment { get; set; }
+
+    public string? BlockedReason { get; set; }
+    public long RowVersion { get; set; }
 }
 
 // =====================================================================
@@ -257,3 +260,44 @@ public class TaskFilterViewModel
         || CreatedFrom.HasValue
         || CreatedTo.HasValue;
 }
+
+// =====================================================================
+// 6) Kanban Board View Models
+// =====================================================================
+
+public class TaskBoardViewModel
+{
+    public int ProjectId { get; set; }
+    public string ProjectCode { get; set; } = string.Empty;
+    public string ProjectName { get; set; } = string.Empty;
+    public bool IsTruncated { get; set; }
+    public TaskFilterViewModel Filter { get; set; } = new();
+    public IReadOnlyList<TaskBoardColumnViewModel> Columns { get; set; } = new List<TaskBoardColumnViewModel>();
+}
+
+public class TaskBoardColumnViewModel
+{
+    public TaskItemStatus Status { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+    public int Count => Cards.Count;
+    public IReadOnlyList<TaskCardViewModel> Cards { get; set; } = new List<TaskCardViewModel>();
+}
+
+public class TaskCardViewModel
+{
+    public int Id { get; set; }
+    public string Key { get; set; } = string.Empty; // Formatted as "{ProjectCode}-{Id}"
+    public string Title { get; set; } = string.Empty;
+    public TaskItemStatus Status { get; set; }
+    public TaskPriority Priority { get; set; }
+    public DateTime? DueDate { get; set; }
+    public decimal EstimatedHours { get; set; }
+    public decimal ActualHours { get; set; }
+    public string? BlockedReason { get; set; }
+    public bool CanEdit { get; set; }
+    public long RowVersion { get; set; } // UpdatedAt.Ticks representation
+    public string AssigneeName { get; set; } = string.Empty;
+    public string AssigneeId { get; set; } = string.Empty;
+    public DateTime UpdatedAt { get; set; }
+}
+

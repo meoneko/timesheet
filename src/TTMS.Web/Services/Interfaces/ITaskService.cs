@@ -42,6 +42,12 @@ public interface ITaskService
     /// <summary>Restores a previously soft-deleted task. Writes a Restored history row.
     /// Note: this is the service-level operation only; the Restore UI lands in Step 9.</summary>
     Task<ServiceResult> RestoreAsync(int taskId, string userId, CancellationToken ct = default);
+
+    /// <summary>Gets the Kanban board view model for a project.</summary>
+    Task<TaskBoardViewModel> GetBoardAsync(int projectId, TaskFilterViewModel filter, string userId, CancellationToken ct = default);
+
+    /// <summary>Changes the status of a task via AJAX (with concurrency & permission checks).</summary>
+    Task<TaskStatusChangeResult> ChangeStatusAjaxAsync(int taskId, TaskItemStatus targetStatus, string? blockedReason, long rowVersionTicks, string userId, CancellationToken ct = default);
 }
 
 /// <summary>Result for <see cref="ITaskService.CreateAsync"/> — carries the new task id on success.</summary>
@@ -49,3 +55,18 @@ public class TaskMutationResult : ServiceResult
 {
     public int? TaskId { get; init; }
 }
+
+public class TaskStatusChangeResult
+{
+    public bool Succeeded { get; set; }
+    public string? ErrorCode { get; set; }
+    public string? Message { get; set; }
+    public TaskCardViewModel? Card { get; set; }
+
+    public static TaskStatusChangeResult Success(TaskCardViewModel card) =>
+        new() { Succeeded = true, Card = card };
+
+    public static TaskStatusChangeResult Fail(string message, string errorCode) =>
+        new() { Succeeded = false, Message = message, ErrorCode = errorCode };
+}
+

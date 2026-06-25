@@ -462,4 +462,134 @@ public class TaskServiceTests
         Assert.False(result.Succeeded);
         Assert.Equal("Forbidden", result.ErrorCode);
     }
+
+    // ======================================================================
+    // GetBoardAsync
+    // ======================================================================
+
+    [Fact]
+    public async Task GetBoard_ReturnsColumnsWithCorrectTasksAndAccessCheck()
+    {
+        var (h, proj, task) = await SeedActiveProjectWithTaskAsync(AliceId, "P50", "BoardTask");
+        
+        // 1. Check member access
+        var board = await h.Tasks.GetBoardAsync(proj.Id, new TaskFilterViewModel(), AliceId);
+        Assert.NotNull(board);
+        Assert.Equal(proj.Id, board.ProjectId);
+        Assert.False(board.IsTruncated);
+        Assert.Equal(6, board.Columns.Count);
+        
+        var todoColumn = board.Columns.First(c => c.Status == TaskItemStatus.Todo);
+        Assert.Single(todoColumn.Cards);
+        Assert.Equal(task.Id, todoColumn.Cards[0].Id);
+        Assert.True(todoColumn.Cards[0].CanEdit);
+
+        // 2. Outsider gets null or throws access exception
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => h.Tasks.GetBoardAsync(proj.Id, new TaskFilterViewModel(), EveId));
+
+        h.Dispose();
+    }
+
+    [Fact]
+    public async Task GetBoard_TruncatesAt200Tasks()
+    {
+        var h = Build();
+        await SeedUsersAsync(h.AuthHarness);
+        var proj = await CreateProjectAsync(h, AliceId, "P51", "P51");
+
+        // Seed 205 tasks
+        for (int i = 1; i <= 205; i++)
+        {
+            var taskResult = await h.Tasks.CreateAsync(NewTaskForm(proj.Id, $"Task {i}", AliceId), AliceId);
+            Assert.True(taskResult.Succeeded);
+        }
+
+        var board = await h.Tasks.GetBoardAsync(proj.Id, new TaskFilterViewModel(), AliceId);
+        Assert.NotNull(board);
+        Assert.True(board.IsTruncated);
+        
+        var totalCards = board.Columns.Sum(c => c.Cards.Count);
+        Assert.Equal(200, totalCards);
+
+        h.Dispose();
+    }
+
+    // ======================================================================
+    // ChangeStatusAjaxAsync
+    // ======================================================================
+
+    [Fact]
+    public async Task ChangeStatusAjax_UpdatesStatusSuccessfully()
+    {
+        var (h, _, task) = await SeedActiveProjectWithTaskAsync(AliceId, "P60", "StatusAjax");
+        var ticks = task.UpdatedAt.Ticks;
+
+        var result = await h.Tasks.ChangeStatusAjaxAsync(task.Id, TaskItemStatus.InProgress, null, ticks, AliceId);
+        Assert.True(result.Succeeded);
+        Assert.Equal(TaskItemStatus.InProgress, result.Card!.Status);
+        
+        // Verify in DB
+        var dbTask = await h.AuthHarness.Db.TaskItems.FindAsync(task.Id);
+        Assert.Equal(TaskItemStatus.InProgress, dbTask!.ItemStatus);
+
+        h.Dispose();
+    }
+
+    [Fact]
+    public async Task ChangeStatusAjax_FailsOnConcurrencyConflict()
+    {
+        var (h, _, task) = await SeedActiveProjectWithTaskAsync(AliceId, "P61", "StatusAjaxConflict");
+        var badTicks = task.UpdatedAt.Ticks - 10000;
+
+        var result = await h.Tasks.ChangeStatusAjaxAsync(task.Id, TaskItemStatus.InProgress, null, badTicks, AliceId);
+        Assert.False(result.Succeeded);
+        Assert.Equal("ConcurrencyConflict", result.ErrorCode);
+
+        h.Dispose();
+    }
+
+    [Fact]
+    public async Task ChangeStatusAjax_RequiresBlockedReasonForBlockedStatus()
+    {
+        var (h, _, task) = await SeedActiveProjectWithTaskAsync(AliceId, "P62", "StatusAjaxBlocked");
+        var ticks = task.UpdatedAt.Ticks;
+
+        // 1. Fail without reason
+        var resultNoReason = await h.Tasks.ChangeStatusAjaxAsync(task.Id, TaskItemStatus.Blocked, null, ticks, AliceId);
+        Assert.False(resultNoReason.Succeeded);
+        Assert.Equal("ValidationError", resultNoReason.ErrorCode);
+
+        // 2. Success with reason
+        var resultWithReason = await h.Tasks.ChangeStatusAjaxAsync(task.Id, TaskItemStatus.Blocked, "Waiting for API specs", ticks, AliceId);
+        Assert.True(resultWithReason.Succeeded);
+        Assert.Equal(TaskItemStatus.Blocked, resultWithReason.Card!.Status);
+        Assert.Equal("Waiting for API specs", resultWithReason.Card.BlockedReason);
+
+        // 3. Clear reason when moving out of Blocked
+        var ticks2 = resultWithReason.Card.RowVersion; // new version
+        var resultClear = await h.Tasks.ChangeStatusAjaxAsync(task.Id, TaskItemStatus.Done, null, ticks2, AliceId);
+        Assert.True(resultClear.Succeeded);
+        Assert.Null(resultClear.Card!.BlockedReason);
+
+        h.Dispose();
+    }
+
+    [Fact]
+    public async Task ChangeStatusAjax_FailsWhenProjectNotActive()
+    {
+        var (h, proj, task) = await SeedActiveProjectWithTaskAsync(AliceId, "P63", "StatusAjaxPaused");
+        var ticks = task.UpdatedAt.Ticks;
+
+        // Pause project
+        var updated = await h.Projects.UpdateAsync(proj.Id,
+            new ProjectEditViewModel { Id = proj.Id, Code = proj.Code, Name = proj.Name, Status = ProjectStatus.Paused },
+            AliceId);
+        Assert.True(updated.Succeeded);
+
+        var result = await h.Tasks.ChangeStatusAjaxAsync(task.Id, TaskItemStatus.InProgress, null, ticks, AliceId);
+        Assert.False(result.Succeeded);
+        Assert.Equal("ProjectNotActive", result.ErrorCode);
+
+        h.Dispose();
+    }
 }

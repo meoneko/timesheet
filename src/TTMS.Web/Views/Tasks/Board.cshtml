@@ -1,0 +1,200 @@
+@model TaskBoardViewModel
+@using TTMS.Web.Models.ViewModels
+@using TTMS.Web.Models.Enums
+@{
+    ViewData["Title"] = "Task Board";
+    var projectId = Model.ProjectId;
+    var filter = Model.Filter;
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/task-detail.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/kanban.css" asp-append-version="true" />
+}
+
+@section Scripts {
+    <script src="~/js/kanban.js" asp-append-version="true"></script>
+}
+
+<nav aria-label="breadcrumb" class="ttms-task-breadcrumb">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Index">Projects</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Details" asp-route-id="@projectId">Project</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Tasks</li>
+    </ol>
+</nav>
+
+@{
+    var queryParams = new RouteValueDictionary();
+    foreach (var key in Context.Request.Query.Keys)
+    {
+        queryParams[key] = Context.Request.Query[key].ToString();
+    }
+    
+    var listParams = new RouteValueDictionary(queryParams);
+    listParams["view"] = "list";
+    listParams.Remove("page");
+    
+    var boardParams = new RouteValueDictionary(queryParams);
+    boardParams["view"] = "board";
+    boardParams.Remove("page");
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3 mt-1">
+    <div class="d-flex align-items-center gap-3">
+        <h1 class="h3 mb-0 fw-bold" style="color: #172B4D;">Tasks</h1>
+        <div class="view-toggle-group">
+            <a href="@Url.Action("Index", listParams)" class="view-toggle-btn">
+                <i class="bi bi-list-task"></i> List
+            </a>
+            <a href="@Url.Action("Index", boardParams)" class="view-toggle-btn active">
+                <i class="bi bi-kanban"></i> Board
+            </a>
+        </div>
+    </div>
+    <a asp-action="Create" asp-route-projectId="@projectId" asp-route-view="board" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1">
+        <i class="bi bi-plus-lg"></i> New Task
+    </a>
+</div>
+
+@if (filter is not null)
+{
+    <partial name="_Filters" model="filter" />
+}
+
+@if (Model.IsTruncated)
+{
+    <div class="board-truncation-banner shadow-sm mb-3">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <span>Only showing the first 200 tasks. Please apply filters to narrow down the results.</span>
+    </div>
+}
+
+<div class="kanban-board" id="kanban-board" data-project-id="@Model.ProjectId">
+    @foreach (var col in Model.Columns)
+    {
+        <div class="kanban-column">
+            <div class="kanban-column-header">
+                <h3 class="kanban-column-title">@col.DisplayName</h3>
+                <span class="kanban-column-count">@col.Cards.Count</span>
+            </div>
+            <div class="kanban-cards-container" id="column-@col.Status" data-status="@col.Status">
+                @foreach (var card in col.Cards)
+                {
+                    <div class="kanban-card @(!card.CanEdit ? "readonly" : "")" 
+                         data-task-id="@card.Id" 
+                         data-status="@card.Status" 
+                         data-row-version="@card.RowVersion" 
+                         id="card-@card.Id">
+                        
+                        <div class="kanban-card-title">
+                            <a asp-action="Details" asp-route-projectId="@Model.ProjectId" asp-route-id="@card.Id">@card.Title</a>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(card.BlockedReason))
+                        {
+                            <div class="kanban-card-blocked-banner">
+                                Blocked: @card.BlockedReason
+                            </div>
+                        }
+
+                        <div class="kanban-card-meta">
+                            <div class="kanban-card-key">@card.Key</div>
+                            <div class="kanban-card-badges">
+                                <partial name="_TaskPriorityBadge" model="card.Priority" />
+                                @if (card.DueDate.HasValue)
+                                {
+                                    var isOverdue = card.DueDate.Value < DateTime.UtcNow.Date && card.Status != TaskItemStatus.Done && card.Status != TaskItemStatus.Cancelled;
+                                    <span class="badge-due-date @(isOverdue ? "overdue" : "")" title="Due Date">
+                                        <i class="bi bi-calendar3"></i> @card.DueDate.Value.ToString("MMM dd")
+                                    </span>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="kanban-card-meta border-top pt-2">
+                            <div class="kanban-card-assignee">
+                                @if (!string.IsNullOrEmpty(card.AssigneeName))
+                                {
+                                    <span class="avatar-circle @GetAvatarBgClass(card.AssigneeName)" title="Assignee: @card.AssigneeName">
+                                        @GetInitials(card.AssigneeName)
+                                    </span>
+                                    <span class="small text-muted" style="font-size: 0.75rem;">@card.AssigneeName</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small italic">Unassigned</span>
+                                }
+                            </div>
+                            
+                            <span class="small text-muted kanban-card-hours" style="font-size: 0.75rem;">
+                                @card.ActualHours.ToString("0.##")h / @card.EstimatedHours.ToString("0.##")h
+                            </span>
+                        </div>
+
+                        @if (card.CanEdit)
+                        {
+                            <select class="form-select kanban-card-select-fallback" aria-label="Move task status">
+                                @foreach (TaskItemStatus status in Enum.GetValues(typeof(TaskItemStatus)))
+                                {
+                                    <!option value="@status" @(card.Status == status ? "selected" : "")>Move to @status</!option>
+                                }
+                            </select>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@Html.AntiForgeryToken()
+
+<!-- Blocked Reason Modal -->
+<div class="modal fade" id="blockedReasonModal" tabindex="-1" aria-labelledby="blockedReasonModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title fw-bold" id="blockedReasonModalLabel">
+                    <i class="bi bi-slash-circle"></i> Block Task
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="blockedReasonForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="blockedReasonInput" class="form-label fw-semibold">Please provide a reason for blocking this task:</label>
+                        <textarea class="form-control" id="blockedReasonInput" rows="4" required maxlength="500" placeholder="Describe why this task is blocked..."></textarea>
+                        <div class="form-text">Max 500 characters. Trimmed.</div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" id="submitBlockedReason" class="btn btn-danger btn-sm px-3">Block Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Task Details Side Drawer -->
+<div id="task-preview-drawer" class="ttms-preview-drawer shadow-lg"></div>
+<div id="drawer-backdrop" class="drawer-backdrop"></div>
+
+@functions {
+    public string GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "U";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1) return parts[0][0].ToString().ToUpper();
+        return (parts[0][0].ToString() + parts[parts.Length - 1][0].ToString()).ToUpper();
+    }
+
+    public string GetAvatarBgClass(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "avatar-bg-0";
+        int hash = name.GetHashCode();
+        int index = Math.Abs(hash) % 6;
+        return $"avatar-bg-{index}";
+    }
+}

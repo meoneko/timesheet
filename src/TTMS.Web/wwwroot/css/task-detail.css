@@ -584,3 +584,110 @@
     border: none;
 }
 
+/* View Toggle Buttons (List / Board switcher) */
+.view-toggle-group {
+    background-color: #EBECF0;
+    border-radius: 4px;
+    padding: 2px;
+    display: inline-flex;
+}
+
+.view-toggle-btn {
+    border: none;
+    background: transparent;
+    color: #42526E;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.view-toggle-btn.active {
+    background-color: #ffffff;
+    color: #0052CC;
+    box-shadow: 0 1px 2px rgba(9, 30, 66, 0.08);
+}
+
+.view-toggle-btn:hover:not(.active) {
+    color: #172B4D;
+}
+
+/* ===========================================================================
+   List View – Viewport Lock (inner scroll only, no outer page scroll)
+   =========================================================================== */
+
+body:has(#task-list-view) {
+    overflow: hidden !important;
+    margin-bottom: 0 !important;
+    height: 100vh !important;
+}
+
+body:has(#task-list-view) .ttms-app {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+}
+
+body:has(#task-list-view) .ttms-main {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+}
+
+body:has(#task-list-view) .ttms-content {
+    flex: 1 1 auto !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 0.75rem 1rem 0 1rem !important;
+}
+
+body:has(#task-list-view) main[role="main"] {
+    flex: 1 1 auto !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding-bottom: 0 !important;
+}
+
+body:has(#task-list-view) footer {
+    display: none !important;
+}
+
+/* The list view wrapper stretches to fill and scrolls internally */
+#task-list-view {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* The card+table area gets its own vertical scroll */
+#task-list-view .task-list-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+/* Thin custom scrollbar for table area */
+#task-list-view .task-list-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+#task-list-view .task-list-scroll::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+#task-list-view .task-list-scroll::-webkit-scrollbar-thumb {
+    background: #c1c7d0;
+    border-radius: 3px;
+}
+#task-list-view .task-list-scroll::-webkit-scrollbar-thumb:hover {
+    background: #a1a7b0;
+}

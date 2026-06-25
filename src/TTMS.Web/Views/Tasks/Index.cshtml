@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="~/css/task-detail.css" asp-append-version="true" />
 }
 
+<div id="task-list-view">
+
 <nav aria-label="breadcrumb" class="ttms-task-breadcrumb">
     <ol class="breadcrumb mb-0">
         <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Index">Projects</a></li>
@@ -21,9 +23,33 @@
     </ol>
 </nav>
 
+@{
+    var queryParams = new RouteValueDictionary();
+    foreach (var key in Context.Request.Query.Keys)
+    {
+        queryParams[key] = Context.Request.Query[key].ToString();
+    }
+    
+    var listParams = new RouteValueDictionary(queryParams);
+    listParams["view"] = "list";
+    listParams.Remove("page");
+    
+    var boardParams = new RouteValueDictionary(queryParams);
+    boardParams["view"] = "board";
+    boardParams.Remove("page");
+}
+
 <div class="d-flex justify-content-between align-items-center mb-4 mt-2">
-    <div>
+    <div class="d-flex align-items-center gap-3">
         <h1 class="h3 mb-0 fw-bold" style="color: #172B4D;">Tasks</h1>
+        <div class="view-toggle-group">
+            <a href="@Url.Action("Index", listParams)" class="view-toggle-btn active">
+                <i class="bi bi-list-task"></i> List
+            </a>
+            <a href="@Url.Action("Index", boardParams)" class="view-toggle-btn">
+                <i class="bi bi-kanban"></i> Board
+            </a>
+        </div>
     </div>
     <a asp-action="Create" asp-route-projectId="@projectId" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1">
         <i class="bi bi-plus-lg"></i> New Task
@@ -54,6 +80,7 @@ else
     {
         <p class="small text-muted mb-3" style="font-weight: 500;">@rows.Count task(s) match the current filters.</p>
     }
+    <div class="task-list-scroll">
     <div class="card border rounded shadow-sm overflow-hidden bg-white">
         <div class="table-responsive">
             <table class="table ttms-task-table align-middle mb-0">
@@ -142,7 +169,10 @@ else
             </table>
         </div>
     </div>
+    </div>
 }
+
+</div>
 
 @functions {
     public string GetInitials(string? name)

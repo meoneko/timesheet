@@ -1,0 +1,411 @@
+@model TaskDetailViewModel
+@using TTMS.Web.Models.Enums
+@using TTMS.Web.Models.ViewModels
+
+@{
+    var canManageAttachments = (bool)(ViewData["CanManageAttachments"] ?? false);
+
+    var statusClass = Model.Status switch
+    {
+        TaskItemStatus.Todo => "status-todo",
+        TaskItemStatus.InProgress => "status-inprogress",
+        TaskItemStatus.Done => "status-done",
+        TaskItemStatus.Blocked => "status-blocked",
+        TaskItemStatus.Pending => "status-pending",
+        TaskItemStatus.Cancelled => "status-cancelled",
+        _ => "status-todo"
+    };
+}
+
+<div class="drawer-header border-bottom pb-2 mb-3 d-flex justify-content-between align-items-center">
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-secondary text-white fw-bold" style="font-size: 0.8rem;">@Model.ProjectCode-@Model.Id</span>
+        @if (Model.ViewerCanEdit)
+        {
+            <a asp-action="Edit" asp-route-projectId="@Model.ProjectId" asp-route-id="@Model.Id" class="btn btn-sm btn-light border py-1 px-2 d-inline-flex align-items-center gap-1" style="font-size: 0.75rem;">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
+        }
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <a asp-action="Details" asp-route-projectId="@Model.ProjectId" asp-route-id="@Model.Id" class="btn btn-sm btn-light border py-1 px-2 d-inline-flex align-items-center gap-1" style="font-size: 0.75rem;" title="Open in full view">
+            <i class="bi bi-box-arrow-up-right"></i> Full View
+        </a>
+        <button type="button" class="btn-close" id="close-preview-drawer" aria-label="Close"></button>
+    </div>
+</div>
+
+<div class="drawer-body-content">
+    <h3 class="h5 fw-bold mb-3" style="color: #172B4D;">@Model.Title</h3>
+
+    @if (!string.IsNullOrEmpty(Model.BlockedReason))
+    {
+        <div class="alert alert-danger py-2 px-3 mb-3 small d-flex align-items-center gap-2">
+            <i class="bi bi-slash-circle-fill"></i>
+            <div><strong>Blocked:</strong> @Model.BlockedReason</div>
+        </div>
+    }
+
+    <div class="drawer-layout-container">
+        <!-- Main Panel (Left/60%) -->
+        <div class="drawer-main-panel">
+            <!-- Description -->
+            <div>
+                <div class="ttms-section-label">Description</div>
+                <div class="task-description-wrapper">
+                    @if (string.IsNullOrWhiteSpace(Model.DescriptionHtml))
+                    {
+                        <span class="text-muted italic small">No description yet.</span>
+                    }
+                    else
+                    {
+                        <div class="task-description small">@Html.Raw(Model.DescriptionHtml)</div>
+                    }
+                </div>
+            </div>
+
+            <!-- Activity Tabs -->
+            <div>
+                <ul class="nav nav-tabs" id="drawerActivityTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="drawer-time-tab" data-bs-toggle="tab" data-bs-target="#drawer-time" type="button" role="tab">
+                            Time <span class="badge">@Model.TimeEntryCount</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="drawer-attach-tab" data-bs-toggle="tab" data-bs-target="#drawer-attach" type="button" role="tab">
+                            Files <span class="badge">@Model.Attachments.Count</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="drawer-history-tab" data-bs-toggle="tab" data-bs-target="#drawer-history" type="button" role="tab">
+                            History <span class="badge">@Model.RecentHistory.Count</span>
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content pt-3">
+                    <!-- Time Entries Tab -->
+                    <div class="tab-pane fade show active" id="drawer-time" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small fw-semibold text-muted">Work Logs</span>
+                            @if (Model.ViewerCanLogTime)
+                            {
+                                <button type="button" class="btn btn-xs btn-primary py-0 px-2" style="font-size: 0.75rem;" data-bs-toggle="collapse" data-bs-target="#logTimeFormCollapse">
+                                    <i class="bi bi-plus-lg"></i> Log Time
+                                </button>
+                            }
+                        </div>
+
+                        <!-- Collapse Log Time Form -->
+                        @if (Model.ViewerCanLogTime)
+                        {
+                            <div class="collapse mb-3" id="logTimeFormCollapse">
+                                <form id="drawerLogTimeForm" action="/Projects/@Model.ProjectId/Tasks/@Model.Id/TimeEntries/Create" method="post" class="p-3 bg-light rounded border">
+                                    @Html.AntiForgeryToken()
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <label class="form-label mb-0" style="font-size: 0.75rem;">Hours *</label>
+                                            <input type="number" name="DurationHours" step="0.01" class="form-control form-control-sm" required min="0.01" max="24" placeholder="e.g. 1.5" style="font-size: 0.8rem;" />
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label mb-0" style="font-size: 0.75rem;">Date *</label>
+                                            <input type="date" name="WorkDate" class="form-control form-control-sm" required value="@DateTime.UtcNow.ToString("yyyy-MM-dd")" style="font-size: 0.8rem;" />
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label mb-0" style="font-size: 0.75rem;">Work Log</label>
+                                            <textarea name="WorkLogText" class="form-control form-control-sm" rows="2" placeholder="Describe your progress..." style="font-size: 0.8rem;"></textarea>
+                                        </div>
+                                        <div class="col-12 text-end">
+                                            <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size: 0.75rem;" data-bs-toggle="collapse" data-bs-target="#logTimeFormCollapse">Cancel</button>
+                                            <button type="submit" class="btn btn-xs btn-primary py-0 px-2" style="font-size: 0.75rem;">Save</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        }
+
+                        @if (!Model.TimeEntries.Any())
+                        {
+                            <div class="text-center py-3 text-muted small">
+                                <em>No work logged yet.</em>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="drawer-worklogs-list">
+                                @foreach (var e in Model.TimeEntries)
+                                {
+                                    <div class="drawer-worklog-item">
+                                        <div class="drawer-worklog-avatar">
+                                            <span class="avatar-circle @GetAvatarBgClass(e.UserDisplayName) d-inline-flex align-items-center justify-content-center" style="width: 28px; height: 28px; font-size: 0.75rem; font-weight: bold; border-radius: 50%; color: white;">
+                                                @GetInitials(e.UserDisplayName)
+                                            </span>
+                                        </div>
+                                        <div class="drawer-worklog-content">
+                                            <div class="drawer-worklog-header">
+                                                <span class="drawer-worklog-user">@e.UserDisplayName</span>
+                                                <span class="drawer-worklog-date">@e.WorkDate.ToString("yyyy-MM-dd")</span>
+                                            </div>
+                                            <div class="drawer-worklog-text">
+                                                @if (string.IsNullOrWhiteSpace(e.WorkLogText))
+                                                {
+                                                    <span class="text-muted italic small">Logged work time.</span>
+                                                }
+                                                else
+                                                {
+                                                    @e.WorkLogText
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="drawer-worklog-hours">
+                                            @e.DurationHours.ToString("0.##")h
+                                        </div>
+                                        @if (e.ViewerCanDelete)
+                                        {
+                                            <div class="drawer-worklog-delete">
+                                                <form class="drawer-delete-time-form d-inline" action="/Projects/@Model.ProjectId/Tasks/@Model.Id/TimeEntries/@e.Id/Delete" method="post">
+                                                    @Html.AntiForgeryToken()
+                                                    <button type="submit" class="btn btn-link text-danger p-0 border-0" onclick="return confirm('Remove this time entry?');" title="Remove">
+                                                        <i class="bi bi-trash fs-6"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Attachments Tab -->
+                    <div class="tab-pane fade" id="drawer-attach" role="tabpanel">
+                        @if (canManageAttachments)
+                        {
+                            <form id="drawerUploadAttachmentForm" action="/Projects/@Model.ProjectId/Tasks/@Model.Id/Attachments" method="post" enctype="multipart/form-data" class="mb-3 p-3 bg-light rounded border text-center">
+                                @Html.AntiForgeryToken()
+                                <i class="bi bi-cloud-arrow-up fs-4 text-muted d-block mb-1"></i>
+                                <p class="mb-2 text-muted" style="font-size: 0.75rem;">Upload a file (Max 50MB)</p>
+                                <div class="d-flex justify-content-center gap-1">
+                                    <input type="file" name="file" class="form-control form-control-sm w-auto" required style="font-size: 0.75rem;" />
+                                    <button type="submit" class="btn btn-sm btn-primary py-0 px-2" style="font-size: 0.75rem;">Upload</button>
+                                </div>
+                            </form>
+                        }
+
+                        @if (!Model.Attachments.Any())
+                        {
+                            <div class="text-center py-3 text-muted small">
+                                <em>No attachments yet.</em>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="drawer-attachments-list">
+                                @foreach (var a in Model.Attachments)
+                                {
+                                    <div class="drawer-attachment-card">
+                                        <div class="drawer-attachment-info">
+                                            @{
+                                                var fileIcon = "bi-file-earmark";
+                                                var ext = System.IO.Path.GetExtension(a.FileName)?.ToLowerInvariant();
+                                                if (ext == ".pdf") fileIcon = "bi-file-pdf text-danger";
+                                                else if (ext == ".doc" || ext == ".docx") fileIcon = "bi-file-word text-primary";
+                                                else if (ext == ".xls" || ext == ".xlsx") fileIcon = "bi-file-excel text-success";
+                                                else if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif") fileIcon = "bi-file-image text-info";
+                                                else if (ext == ".zip" || ext == ".rar") fileIcon = "bi-file-zip text-warning";
+                                            }
+                                            <i class="bi @fileIcon drawer-attachment-icon"></i>
+                                            <a href="/Attachments/@a.Id/Download" class="drawer-attachment-name" target="_blank" title="@a.FileName">@a.FileName</a>
+                                            <span class="drawer-attachment-size">(@a.SizeDisplay)</span>
+                                        </div>
+                                        @if (canManageAttachments)
+                                        {
+                                            <form class="drawer-delete-attachment-form d-inline" action="/Attachments/@a.Id/Delete" method="post">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="returnProjectId" value="@Model.ProjectId" />
+                                                <input type="hidden" name="returnTaskId" value="@Model.Id" />
+                                                <button type="submit" class="btn btn-link text-danger p-0 border-0" onclick="return confirm('Remove this attachment?');" title="Remove">
+                                                    <i class="bi bi-trash fs-6"></i>
+                                                </button>
+                                            </form>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <!-- History Tab -->
+                    <div class="tab-pane fade" id="drawer-history" role="tabpanel">
+                        @if (!Model.RecentHistory.Any())
+                        {
+                            <div class="text-center py-3 text-muted small">
+                                <em>No history logs yet.</em>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="drawer-timeline">
+                                @foreach (var h in Model.RecentHistory)
+                                {
+                                    <div class="drawer-timeline-item">
+                                        <div class="drawer-timeline-dot"></div>
+                                        <div class="drawer-timeline-meta">
+                                            <span class="drawer-timeline-user">@h.ChangedByName</span>
+                                            <span>at @h.ChangedAt.ToString("yyyy-MM-dd HH:mm")</span>
+                                        </div>
+                                        <div class="drawer-timeline-content">
+                                            <span class="badge bg-light text-dark border py-0 px-1 me-1">@h.Event</span>
+                                            @if (h.Event == HistoryEvent.StatusChanged)
+                                            {
+                                                <span class="text-decoration-line-through text-muted">@h.OldValue</span> @("→") <span class="fw-bold text-success">@h.NewValue</span>
+                                            }
+                                            else
+                                            {
+                                                <span>@h.NewValue</span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar Panel (Right/40%) -->
+        <div class="drawer-sidebar-panel">
+            <!-- Status Dropdown -->
+            <div>
+                <div class="ttms-section-label">Status</div>
+                @if (Model.ViewerCanEdit)
+                {
+                    <select class="form-select form-select-sm fw-semibold drawer-status-select @statusClass" 
+                            data-task-id="@Model.Id" 
+                            data-row-version="@Model.RowVersion">
+                        @foreach (TaskItemStatus status in Enum.GetValues(typeof(TaskItemStatus)))
+                        {
+                            <!option value="@status" @(Model.Status == status ? "selected" : "")>@status</!option>
+                        }
+                    </select>
+                }
+                else
+                {
+                    <div>
+                        <span class="badge bg-secondary p-2" style="font-size: 0.85rem;">@Model.Status</span>
+                    </div>
+                }
+            </div>
+
+            <!-- Details list -->
+            <div>
+                <div class="ttms-section-label">Details</div>
+                <div class="drawer-meta-list">
+                    <div class="drawer-meta-item">
+                        <span class="drawer-meta-label">Assignee</span>
+                        <span class="drawer-meta-value">
+                            @if (!string.IsNullOrEmpty(Model.AssigneeName))
+                            {
+                                <span class="avatar-circle @GetAvatarBgClass(Model.AssigneeName) d-inline-flex align-items-center justify-content-center" style="width: 20px; height: 20px; font-size: 0.7rem; font-weight: bold; border-radius: 50%; color: white;">
+                                    @GetInitials(Model.AssigneeName)
+                                </span>
+                                <span>@Model.AssigneeName</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted italic">Unassigned</span>
+                            }
+                        </span>
+                    </div>
+
+                    <div class="drawer-meta-item">
+                        <span class="drawer-meta-label">Priority</span>
+                        <span class="drawer-meta-value">
+                            <partial name="_TaskPriorityBadge" model="Model.Priority" />
+                        </span>
+                    </div>
+
+                    <div class="drawer-meta-item">
+                        <span class="drawer-meta-label">Due Date</span>
+                        <span class="drawer-meta-value">
+                            @if (Model.DueDate.HasValue)
+                            {
+                                var isOverdue = Model.DueDate.Value < DateTime.UtcNow.Date && Model.Status != TaskItemStatus.Done && Model.Status != TaskItemStatus.Cancelled;
+                                <span class="@(isOverdue ? "text-danger fw-bold" : "")">
+                                    <i class="bi bi-calendar3"></i> @Model.DueDate.Value.ToString("yyyy-MM-dd")
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">&mdash;</span>
+                            }
+                        </span>
+                    </div>
+
+                    <div class="drawer-meta-item">
+                        <span class="drawer-meta-label">Reporter</span>
+                        <span class="drawer-meta-value">
+                            @if (!string.IsNullOrEmpty(Model.ReporterName))
+                            {
+                                <span class="avatar-circle @GetAvatarBgClass(Model.ReporterName) d-inline-flex align-items-center justify-content-center" style="width: 20px; height: 20px; font-size: 0.7rem; font-weight: bold; border-radius: 50%; color: white;">
+                                    @GetInitials(Model.ReporterName)
+                                </span>
+                                <span>@Model.ReporterName</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted italic">Unknown</span>
+                            }
+                        </span>
+                    </div>
+
+                    <div class="drawer-meta-item">
+                        <span class="drawer-meta-label">Created</span>
+                        <span class="drawer-meta-value text-muted" style="font-weight: normal; font-size: 0.8rem;">
+                            <i class="bi bi-clock"></i> @Model.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Time Tracking Progress Bar -->
+            <div>
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="ttms-section-label mb-0">Time Tracking</span>
+                    <span class="drawer-time-tracking-text small text-muted" style="font-size: 0.72rem;">@Model.ActualHours.ToString("0.##")h logged / @Model.EstimatedHours.ToString("0.##")h est</span>
+                </div>
+                @{
+                    var percent = Model.EstimatedHours > 0 
+                        ? (int)Math.Min(100, Math.Round((Model.ActualHours / Model.EstimatedHours) * 100)) 
+                        : (Model.ActualHours > 0 ? 100 : 0);
+                    var barClass = percent >= 100 && Model.EstimatedHours > 0 && Model.ActualHours > Model.EstimatedHours 
+                        ? "bg-danger" 
+                        : "bg-primary";
+                }
+                <div class="progress" style="height: 6px;" title="@percent% of estimate logged">
+                    <div class="progress-bar @barClass" role="progressbar" style="width: @percent%;" aria-valuenow="@percent" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@functions {
+    public string GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "U";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1) return parts[0][0].ToString().ToUpper();
+        return (parts[0][0].ToString() + parts[parts.Length - 1][0].ToString()).ToUpper();
+    }
+
+    public string GetAvatarBgClass(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "avatar-bg-0";
+        int hash = name.GetHashCode();
+        int index = Math.Abs(hash) % 6;
+        return $"avatar-bg-{index}";
+    }
+}

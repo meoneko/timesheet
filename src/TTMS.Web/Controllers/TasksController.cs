@@ -39,7 +39,7 @@ public class TasksController : Controller
     // ===========================================================================
 
     [HttpGet("")]
-    public async Task<IActionResult> Index(int projectId, [FromQuery] TaskFilterViewModel? filter, CancellationToken ct)
+    public async Task<IActionResult> Index(int projectId, [FromQuery] TaskFilterViewModel? filter, [FromQuery] string? view, CancellationToken ct)
     {
         if (!await _authz.CanViewProjectAsync(CurrentUserId(), projectId))
             return Forbid();
@@ -48,10 +48,18 @@ public class TasksController : Controller
         filter.ProjectId = projectId; // always pin to the current project
         NormalizeTaskFilter(filter);
 
-        var rows = await _tasks.SearchAsync(filter, CurrentUserId(), ct);
-        ViewData["Title"] = "Tasks";
         ViewData["ProjectId"] = projectId;
         ViewData["Filter"] = filter;
+
+        if (string.Equals(view, "board", StringComparison.OrdinalIgnoreCase))
+        {
+            var board = await _tasks.GetBoardAsync(projectId, filter, CurrentUserId(), ct);
+            ViewData["Title"] = "Task Board";
+            return View("Board", board);
+        }
+
+        var rows = await _tasks.SearchAsync(filter, CurrentUserId(), ct);
+        ViewData["Title"] = "Tasks";
         return View(rows);
     }
 
@@ -74,13 +82,18 @@ public class TasksController : Controller
     // ===========================================================================
 
     [HttpGet("Create")]
-    public async Task<IActionResult> Create(int projectId, CancellationToken ct)
+    public async Task<IActionResult> Create(int projectId, [FromQuery] TaskItemStatus? status, CancellationToken ct)
     {
         if (!await _authz.CanCreateTaskAsync(CurrentUserId(), projectId))
             return Forbid();
 
         var model = await _tasks.BuildCreateModelAsync(projectId, CurrentUserId(), ct);
         if (model is null) return NotFound();
+
+        if (status.HasValue)
+        {
+            model.Status = status.Value;
+        }
 
         ViewData["Title"] = "New task";
         return View(model);
@@ -201,6 +214,19 @@ public class TasksController : Controller
         return View(detail);
     }
 
+    [HttpGet("{id:int}/Preview")]
+    public async Task<IActionResult> Preview(int projectId, int id, CancellationToken ct)
+    {
+        if (!await _authz.CanViewTaskAsync(CurrentUserId(), id))
+            return Forbid();
+
+        var detail = await _tasks.GetDetailAsync(id, CurrentUserId(), ct);
+        if (detail is null || detail.ProjectId != projectId) return NotFound();
+
+        ViewData["CanManageAttachments"] = detail.ViewerCanUploadAttachment;
+        return PartialView("_TaskPreview", detail);
+    }
+
     // ===========================================================================
     // Attachment upload (POST on the Task Details page)
     // ===========================================================================
@@ -248,6 +274,34 @@ public class TasksController : Controller
         }
 
         return RedirectToAction(nameof(Details), new { projectId, id });
+    }
+
+    [HttpPost("ChangeStatusAjax")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangeStatusAjax(
+        int projectId,
+        [FromForm] int taskId,
+        [FromForm] TaskItemStatus status,
+        [FromForm] string? blockedReason,
+        [FromForm] long rowVersion,
+        CancellationToken ct)
+    {
+        var result = await _tasks.ChangeStatusAjaxAsync(taskId, status, blockedReason, rowVersion, CurrentUserId(), ct);
+
+        if (result.Succeeded)
+        {
+            return Ok(result.Card);
+        }
+
+        return result.ErrorCode switch
+        {
+            "NotFound" => NotFound(new { error = result.Message }),
+            "Forbidden" => StatusCode(403, new { error = result.Message }),
+            "ProjectNotActive" => StatusCode(403, new { error = result.Message }),
+            "ConcurrencyConflict" => StatusCode(409, new { error = result.Message }),
+            "ValidationError" => BadRequest(new { error = result.Message }),
+            _ => BadRequest(new { error = result.Message ?? "Could not change task status." })
+        };
     }
 
     // ===========================================================================
