@@ -2,9 +2,11 @@ using Ganss.Xss;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using TTMS.Web.Data;
+using TTMS.Web.Models;
 using TTMS.Web.Models.Entities;
 using TTMS.Web.Models.Enums;
 using TTMS.Web.Models.ViewModels;
+using TTMS.Web.Services.Helpers;
 
 namespace TTMS.Web.Services;
 
@@ -16,13 +18,15 @@ public class TaskService : ITaskService
     private readonly IHistoryService _history;
     private readonly IHtmlSanitizationService _sanitizer;
     private readonly ITimeConversionService _time;
-    public TaskService(ApplicationDbContext db, IAuthorizationService authz, IHistoryService history, ITimeConversionService time, IHtmlSanitizationService sanitizer)
+    private readonly ICommentService _comments;
+    public TaskService(ApplicationDbContext db, IAuthorizationService authz, IHistoryService history, ITimeConversionService time, IHtmlSanitizationService sanitizer, ICommentService comments)
     {
         _db = db;
         _authz = authz;
         _history = history;
         _time = time;
         _sanitizer = sanitizer;
+        _comments = comments;
     }
 
     public async Task<List<TaskListItem>> ListByProjectAsync(int projectId, string userId, CancellationToken ct = default)
@@ -40,6 +44,8 @@ public class TaskService : ITaskService
                 t.Id,
                 t.ProjectId,
                 t.Title,
+                t.ItemType,
+                t.Severity,
                 t.ItemStatus,
                 t.Priority,
                 t.AssigneeId,
@@ -69,8 +75,15 @@ public class TaskService : ITaskService
             })
             .ToDictionaryAsync(g => g.TaskId, g => (g.TotalMinutes, g.Count), ct);
 
+        var commentCounts = await _db.Comments.AsNoTracking()
+            .Where(c => c.EntityType == CommentEntityType.Task && taskIds.Contains(c.EntityId) && !c.IsDeleted)
+            .GroupBy(c => c.EntityId)
+            .Select(g => new { TaskId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.TaskId, g => g.Count, ct);
+
         var project = await _db.Projects.AsNoTracking()
-            .FirstAsync(p => p.Id == projectId, ct);
+            .FirstOrDefaultAsync(p => p.Id == projectId, ct);
+        if (project is null) return new List<TaskListItem>();
 
         return rows.Select(r =>
         {
@@ -82,6 +95,8 @@ public class TaskService : ITaskService
                 ProjectCode = project.Code,
                 ProjectName = project.Name,
                 Title = r.Title,
+                ItemType = r.ItemType,
+                Severity = r.Severity,
                 Status = r.ItemStatus,
                 Priority = r.Priority,
                 AssigneeId = r.AssigneeId,
@@ -89,6 +104,7 @@ public class TaskService : ITaskService
                 EstimatedHours = r.EstimatedHours,
                 ActualHours = _time.MinutesToHours(agg.TotalMinutes),
                 TimeEntryCount = agg.Count,
+                CommentCount = commentCounts.GetValueOrDefault(r.Id, 0),
                 DueDate = r.DueDate,
                 CreatedAt = r.CreatedAt,
                 UpdatedAt = r.UpdatedAt,
@@ -119,6 +135,9 @@ public class TaskService : ITaskService
 
         if (!string.IsNullOrWhiteSpace(f.AssigneeId))
             query = query.Where(t => t.AssigneeId == f.AssigneeId);
+
+        if (f.ItemType.HasValue)
+            query = query.Where(t => t.ItemType == f.ItemType.Value);
 
         if (f.Statuses is { Count: > 0 })
         {
@@ -163,6 +182,8 @@ public class TaskService : ITaskService
                 t.Id,
                 t.ProjectId,
                 t.Title,
+                t.ItemType,
+                t.Severity,
                 t.ItemStatus,
                 t.Priority,
                 t.AssigneeId,
@@ -190,6 +211,12 @@ public class TaskService : ITaskService
             .Select(p => new { p.Id, p.Code, p.Name })
             .ToDictionaryAsync(p => p.Id, ct);
 
+        var commentCounts = await _db.Comments.AsNoTracking()
+            .Where(c => c.EntityType == CommentEntityType.Task && taskIds.Contains(c.EntityId) && !c.IsDeleted)
+            .GroupBy(c => c.EntityId)
+            .Select(g => new { TaskId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.TaskId, g => g.Count, ct);
+
         return rows.Select(r =>
         {
             var agg = aggregates.GetValueOrDefault(r.Id);
@@ -201,6 +228,8 @@ public class TaskService : ITaskService
                 ProjectCode = proj?.Code ?? string.Empty,
                 ProjectName = proj?.Name ?? string.Empty,
                 Title = r.Title,
+                ItemType = r.ItemType,
+                Severity = r.Severity,
                 Status = r.ItemStatus,
                 Priority = r.Priority,
                 AssigneeId = r.AssigneeId,
@@ -208,6 +237,7 @@ public class TaskService : ITaskService
                 EstimatedHours = r.EstimatedHours,
                 ActualHours = _time.MinutesToHours(agg.TotalMinutes),
                 TimeEntryCount = agg.Count,
+                CommentCount = commentCounts.GetValueOrDefault(r.Id, 0),
                 DueDate = r.DueDate,
                 CreatedAt = r.CreatedAt,
                 UpdatedAt = r.UpdatedAt,
@@ -251,6 +281,8 @@ public class TaskService : ITaskService
                 ProjectName = t.Project.Name,
                 t.Title,
                 t.DescriptionHtml,
+                t.ItemType,
+                t.Severity,
                 t.ItemStatus,
                 t.Priority,
                 t.AssigneeId,
@@ -261,6 +293,12 @@ public class TaskService : ITaskService
                 t.CreatedAt,
                 t.BlockedReason,
                 t.UpdatedAt,
+                t.StepsToReproduceHtml,
+                t.ExpectedBehaviorHtml,
+                t.ActualBehaviorHtml,
+                t.Environment,
+                t.RelatedWorkItemId,
+                RelatedWorkItemTitle = t.RelatedWorkItem != null ? t.RelatedWorkItem.Title : null,
             })
             .FirstOrDefaultAsync(ct);
 
@@ -323,9 +361,12 @@ public class TaskService : ITaskService
                 UploadedAt = a.UploadedAt,
             })
             .ToListAsync(ct);
-        foreach (var a in attachments) a.SizeDisplay = FormatSize(a.Size);
+        foreach (var a in attachments) a.SizeDisplay = TextHelpers.FormatSize(a.Size);
 
-        var recentHistory = await BuildHistoryAsync("Task", taskId, take: 20, ct);
+        var recentHistory = await HistoryQueryBuilder.BuildHistoryAsync(_db, "Task", taskId, take: 20, ct);
+
+        var comments = await _comments.ListAsync(CommentEntityType.Task, taskId, userId, page: 1);
+        var commentCount = await _comments.GetCountAsync(CommentEntityType.Task, taskId);
 
         return new TaskDetailViewModel
         {
@@ -335,11 +376,13 @@ public class TaskService : ITaskService
             ProjectName = task.ProjectName,
             Title = task.Title,
             DescriptionHtml = task.DescriptionHtml,
+            ItemType = task.ItemType,
+            Severity = task.Severity,
             Status = task.ItemStatus,
             Priority = task.Priority,
             AssigneeId = task.AssigneeId,
             AssigneeName = string.IsNullOrWhiteSpace(task.AssigneeFullName) ? task.AssigneeEmail : task.AssigneeFullName,
-            ReporterName = string.IsNullOrWhiteSpace(task.AssigneeFullName) ? task.AssigneeEmail : task.AssigneeFullName,
+            ReporterName = "—",
             EstimatedHours = task.EstimatedHours,
             ActualHours = _time.MinutesToHours(agg?.TotalMinutes ?? 0),
             TimeEntryCount = agg?.Count ?? 0,
@@ -348,12 +391,21 @@ public class TaskService : ITaskService
             TimeEntries = timeEntries,
             Attachments = attachments,
             RecentHistory = recentHistory,
+            Comments = comments,
+            CommentCount = commentCount,
             ViewerCanEdit = await _authz.CanEditTaskAsync(userId, taskId),
             ViewerCanDelete = await _authz.CanDeleteTaskAsync(userId, taskId),
             ViewerCanLogTime = await _authz.CanLogTimeAsync(userId, taskId),
             ViewerCanUploadAttachment = await _authz.CanEditTaskAsync(userId, taskId),
+            ViewerCanComment = await _authz.CanCreateCommentAsync(userId, CommentEntityType.Task, taskId),
             BlockedReason = task.BlockedReason,
             RowVersion = task.UpdatedAt.Ticks,
+            StepsToReproduceHtml = task.StepsToReproduceHtml,
+            ExpectedBehaviorHtml = task.ExpectedBehaviorHtml,
+            ActualBehaviorHtml = task.ActualBehaviorHtml,
+            Environment = task.Environment,
+            RelatedWorkItemId = task.RelatedWorkItemId,
+            RelatedWorkItemTitle = task.RelatedWorkItemTitle,
         };
     }
 
@@ -361,7 +413,7 @@ public class TaskService : ITaskService
     // Create / Update / Delete / Restore
     // ===========================================================================
 
-    public async Task<TaskEditViewModel?> BuildCreateModelAsync(int projectId, string userId, CancellationToken ct = default)
+    public async Task<TaskEditViewModel?> BuildCreateModelAsync(int projectId, string userId, WorkItemType itemType = WorkItemType.Task, CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(userId)) return null;
         if (!await _authz.CanCreateTaskAsync(userId, projectId))
@@ -379,10 +431,12 @@ public class TaskService : ITaskService
             ProjectId = project.Id,
             ProjectCode = project.Code,
             ProjectName = project.Name,
+            ItemType = itemType,
             Status = TaskItemStatus.Todo,
-            StatusOptions = BuildStatusOptions(TaskItemStatus.Todo),
+            StatusOptions = SelectListFactory.BuildStatusOptions(TaskItemStatus.Todo),
             Priority = TaskPriority.Medium,
-            PriorityOptions = BuildPriorityOptions(TaskPriority.Medium),
+            PriorityOptions = SelectListFactory.BuildPriorityOptions(TaskPriority.Medium),
+            SeverityOptions = SelectListFactory.BuildSeverityOptions(null),
             AssignableUsers = members,
         };
     }
@@ -412,6 +466,11 @@ public class TaskService : ITaskService
         if (!isProjectMember && !isAdmin)
             return new TaskMutationResult { Succeeded = false, Error = "Assignee must be a member of this project.", ErrorCode = "AssigneeNotMember" };
 
+        // Even for admins, the assignee must be a real user — otherwise the FK constraint
+        // on Tasks.AssigneeId → AspNetUsers.Id fails at SaveChangesAsync (SQLite Error 19).
+        if (!await _db.Users.AnyAsync(u => u.Id == model.AssigneeId, ct))
+            return new TaskMutationResult { Succeeded = false, Error = "Assignee is not a valid user.", ErrorCode = "AssigneeNotFound" };
+
         var now = DateTime.UtcNow;
         var safeHtml = _sanitizer.Sanitize(model.DescriptionHtml);
         var safeText = _sanitizer.ToPlainText(safeHtml);
@@ -422,6 +481,7 @@ public class TaskService : ITaskService
             Title = model.Title.Trim(),
             DescriptionHtml = safeHtml,
             DescriptionText = safeText,
+            ItemType = model.ItemType,
             ItemStatus = model.Status,
             Priority = model.Priority,
             AssigneeId = model.AssigneeId,
@@ -430,6 +490,22 @@ public class TaskService : ITaskService
             CreatedAt = now,
             UpdatedAt = now,
         };
+
+        // Bug-specific fields
+        if (model.ItemType == WorkItemType.Bug)
+        {
+            task.Severity = model.Severity ?? BugSeverity.Medium;
+
+            var safeSteps = _sanitizer.Sanitize(model.StepsToReproduceHtml ?? string.Empty);
+            task.StepsToReproduceHtml = safeSteps;
+            task.StepsToReproduceText = _sanitizer.ToPlainText(safeSteps);
+
+            task.ExpectedBehaviorHtml = _sanitizer.Sanitize(model.ExpectedBehaviorHtml ?? string.Empty);
+            task.ActualBehaviorHtml = _sanitizer.Sanitize(model.ActualBehaviorHtml ?? string.Empty);
+            task.Environment = string.IsNullOrWhiteSpace(model.Environment) ? null : model.Environment.Trim();
+            task.RelatedWorkItemId = model.RelatedWorkItemId;
+        }
+
         _db.TaskItems.Add(task);
         await _db.SaveChangesAsync(ct);
 
@@ -462,10 +538,18 @@ public class TaskService : ITaskService
             ProjectName = project.Name,
             Title = t.Title,
             DescriptionHtml = t.DescriptionHtml,
+            ItemType = t.ItemType,
+            Severity = t.Severity,
+            StepsToReproduceHtml = t.StepsToReproduceHtml,
+            ExpectedBehaviorHtml = t.ExpectedBehaviorHtml,
+            ActualBehaviorHtml = t.ActualBehaviorHtml,
+            Environment = t.Environment,
+            RelatedWorkItemId = t.RelatedWorkItemId,
             Status = t.ItemStatus,
-            StatusOptions = BuildStatusOptions(t.ItemStatus),
+            StatusOptions = SelectListFactory.BuildStatusOptions(t.ItemStatus),
             Priority = t.Priority,
-            PriorityOptions = BuildPriorityOptions(t.Priority),
+            PriorityOptions = SelectListFactory.BuildPriorityOptions(t.Priority),
+            SeverityOptions = SelectListFactory.BuildSeverityOptions(t.Severity),
             AssigneeId = t.AssigneeId,
             EstimatedHours = t.EstimatedHours,
             DueDate = t.DueDate,
@@ -491,6 +575,11 @@ public class TaskService : ITaskService
         if (!isProjectMember && !isAdmin)
             return ServiceResult.Fail("Assignee must be a member of this project.", "AssigneeNotMember");
 
+        // Even for admins, the assignee must be a real user — otherwise the FK constraint
+        // on Tasks.AssigneeId → AspNetUsers.Id fails at SaveChangesAsync (SQLite Error 19).
+        if (!await _db.Users.AnyAsync(u => u.Id == model.AssigneeId, ct))
+            return ServiceResult.Fail("Assignee is not a valid user.", "AssigneeNotFound");
+
         var oldTitle = task.Title;
         var oldStatus = task.ItemStatus;
         var oldPriority = task.Priority;
@@ -498,6 +587,12 @@ public class TaskService : ITaskService
         var oldEstimate = task.EstimatedHours;
         var oldDueDate = task.DueDate;
         var oldDescription = task.DescriptionHtml;
+        var oldSeverity = task.Severity;
+        var oldSteps = task.StepsToReproduceHtml;
+        var oldExpected = task.ExpectedBehaviorHtml;
+        var oldActual = task.ActualBehaviorHtml;
+        var oldEnvironment = task.Environment;
+        var oldRelated = task.RelatedWorkItemId;
 
         task.Title = model.Title.Trim();
         var sanitized = _sanitizer.Sanitize(model.DescriptionHtml);
@@ -510,6 +605,21 @@ public class TaskService : ITaskService
         task.DueDate = model.DueDate?.ToUniversalTime();
         task.UpdatedAt = DateTime.UtcNow;
 
+        // Bug-specific field updates
+        if (task.ItemType == WorkItemType.Bug)
+        {
+            task.Severity = model.Severity ?? BugSeverity.Medium;
+
+            var safeSteps = _sanitizer.Sanitize(model.StepsToReproduceHtml ?? string.Empty);
+            task.StepsToReproduceHtml = safeSteps;
+            task.StepsToReproduceText = _sanitizer.ToPlainText(safeSteps);
+
+            task.ExpectedBehaviorHtml = _sanitizer.Sanitize(model.ExpectedBehaviorHtml ?? string.Empty);
+            task.ActualBehaviorHtml = _sanitizer.Sanitize(model.ActualBehaviorHtml ?? string.Empty);
+            task.Environment = string.IsNullOrWhiteSpace(model.Environment) ? null : model.Environment.Trim();
+            task.RelatedWorkItemId = model.RelatedWorkItemId;
+        }
+
         if (oldStatus != task.ItemStatus)
             _history.LogTask(task.Id, HistoryEvent.StatusChanged, userId,
                 oldValue: oldStatus.ToString(),
@@ -520,7 +630,7 @@ public class TaskService : ITaskService
                 newValue: task.AssigneeId);
         if (oldTitle != task.Title)
             _history.LogTask(task.Id, HistoryEvent.Updated, userId,
-                oldValue: Truncate(oldTitle, 250), newValue: Truncate(task.Title, 250));
+                oldValue: TextHelpers.Truncate(oldTitle, 250), newValue: TextHelpers.Truncate(task.Title, 250));
         if (oldPriority != task.Priority)
             _history.LogTask(task.Id, HistoryEvent.Updated, userId,
                 oldValue: $"Priority {oldPriority}", newValue: $"Priority {task.Priority}");
@@ -534,6 +644,24 @@ public class TaskService : ITaskService
         if (oldDescription != task.DescriptionHtml)
             _history.LogTask(task.Id, HistoryEvent.Updated, userId,
                 oldValue: "Description changed", newValue: "Description changed");
+        if (oldSeverity != task.Severity)
+            _history.LogTask(task.Id, HistoryEvent.Updated, userId,
+                oldValue: $"Severity {oldSeverity}", newValue: $"Severity {task.Severity}");
+        if (oldSteps != task.StepsToReproduceHtml)
+            _history.LogTask(task.Id, HistoryEvent.Updated, userId,
+                oldValue: "Steps to reproduce changed", newValue: "Steps to reproduce changed");
+        if (oldExpected != task.ExpectedBehaviorHtml)
+            _history.LogTask(task.Id, HistoryEvent.Updated, userId,
+                oldValue: "Expected behavior changed", newValue: "Expected behavior changed");
+        if (oldActual != task.ActualBehaviorHtml)
+            _history.LogTask(task.Id, HistoryEvent.Updated, userId,
+                oldValue: "Actual behavior changed", newValue: "Actual behavior changed");
+        if (oldEnvironment != task.Environment)
+            _history.LogTask(task.Id, HistoryEvent.Updated, userId,
+                oldValue: oldEnvironment ?? "—", newValue: task.Environment ?? "—");
+        if (oldRelated != task.RelatedWorkItemId)
+            _history.LogTask(task.Id, HistoryEvent.Updated, userId,
+                oldValue: oldRelated?.ToString() ?? "—", newValue: task.RelatedWorkItemId?.ToString() ?? "—");
 
         await _db.SaveChangesAsync(ct);
         return ServiceResult.Ok();
@@ -609,25 +737,6 @@ public class TaskService : ITaskService
             .ToListAsync(ct);
     }
 
-    private async Task<List<HistoryRowViewModel>> BuildHistoryAsync(string entity, int entityId, int take, CancellationToken ct)
-    {
-        return await _db.Histories.AsNoTracking()
-            .Where(h => h.Entity == entity && h.EntityId == entityId)
-            .OrderByDescending(h => h.ChangedAt)
-            .Take(take)
-            .Join(_db.Users, h => h.ChangedById, u => u.Id, (h, u) => new { h, u })
-            .Select(x => new HistoryRowViewModel
-            {
-                Id = x.h.Id,
-                Event = x.h.Event,
-                ChangedByName = string.IsNullOrWhiteSpace(x.u.FullName) ? (x.u.Email ?? "—") : x.u.FullName,
-                ChangedAt = x.h.ChangedAt,
-                OldValue = x.h.OldValue,
-                NewValue = x.h.NewValue,
-            })
-            .ToListAsync(ct);
-    }
-
     public async Task<TaskBoardViewModel> GetBoardAsync(int projectId, TaskFilterViewModel filter, string userId, CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(userId))
@@ -650,6 +759,9 @@ public class TaskService : ITaskService
 
         if (!string.IsNullOrWhiteSpace(f.AssigneeId))
             query = query.Where(t => t.AssigneeId == f.AssigneeId);
+
+        if (f.ItemType.HasValue)
+            query = query.Where(t => t.ItemType == f.ItemType.Value);
 
         if (f.Statuses is { Count: > 0 })
         {
@@ -704,7 +816,9 @@ public class TaskService : ITaskService
                 t.AssigneeId,
                 AssigneeFullName = t.Assignee!.FullName ?? string.Empty,
                 AssigneeEmail = t.Assignee!.Email ?? string.Empty,
-                t.UpdatedAt
+                t.UpdatedAt,
+                t.ItemType,
+                t.Severity
             })
             .ToListAsync(ct);
 
@@ -722,6 +836,16 @@ public class TaskService : ITaskService
             })
             .ToDictionaryAsync(g => g.TaskId, g => g.TotalMinutes, ct);
 
+        var commentCounts = await _db.Comments.AsNoTracking()
+            .Where(c => c.EntityType == CommentEntityType.Task && taskIds.Contains(c.EntityId) && !c.IsDeleted)
+            .GroupBy(c => c.EntityId)
+            .Select(g => new { TaskId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.TaskId, g => g.Count, ct);
+
+        // Determine the effective ItemType for column generation.
+        // If filter specifies a type, use that; otherwise default to Task workflow.
+        var effectiveType = f.ItemType ?? WorkItemType.Task;
+
         var cards = displayTasks.Select(t =>
         {
             var totalMinutes = aggregates.GetValueOrDefault(t.Id);
@@ -730,27 +854,31 @@ public class TaskService : ITaskService
                 Id = t.Id,
                 Key = $"{project.Code}-{t.Id}",
                 Title = t.Title,
+                ItemType = t.ItemType,
                 Status = t.ItemStatus,
                 Priority = t.Priority,
                 DueDate = t.DueDate,
                 EstimatedHours = t.EstimatedHours,
                 ActualHours = _time.MinutesToHours(totalMinutes),
                 BlockedReason = t.BlockedReason,
+                Severity = t.Severity,
                 AssigneeId = t.AssigneeId,
                 AssigneeName = string.IsNullOrWhiteSpace(t.AssigneeFullName) ? t.AssigneeEmail : t.AssigneeFullName,
                 UpdatedAt = t.UpdatedAt,
-                RowVersion = t.UpdatedAt.Ticks
+                RowVersion = t.UpdatedAt.Ticks,
+                CommentCount = commentCounts.GetValueOrDefault(t.Id, 0),
             };
 
             card.CanEdit = projectActive && (isAdmin || projectRole == ProjectMemberRole.Owner || card.AssigneeId == userId);
             return card;
         }).ToList();
 
-        var statusesList = Enum.GetValues(typeof(TaskItemStatus)).Cast<TaskItemStatus>().ToList();
+        // Use WorkflowStatusProvider for dynamic columns per ItemType
+        var statusesList = WorkflowStatusProvider.GetStatuses(effectiveType);
         var columns = statusesList.Select(status => new TaskBoardColumnViewModel
         {
             Status = status,
-            DisplayName = status.ToString(),
+            DisplayName = WorkflowStatusProvider.GetDisplayName(effectiveType, status),
             Cards = cards.Where(c => c.Status == status).ToList()
         }).ToList();
 
@@ -760,6 +888,7 @@ public class TaskService : ITaskService
             ProjectCode = project.Code,
             ProjectName = project.Name,
             IsTruncated = isTruncated,
+            ItemType = effectiveType,
             Filter = f,
             Columns = columns
         };
@@ -848,33 +977,6 @@ public class TaskService : ITaskService
 
         return TaskStatusChangeResult.Success(card);
     }
-
-    private static SelectList BuildStatusOptions(TaskItemStatus selected)
-    {
-        var items = Enum.GetValues<TaskItemStatus>()
-            .Select(s => new { Value = (int)s, Display = s.ToString() })
-            .ToList();
-        return new SelectList(items, "Value", "Display", (int)selected);
-    }
-
-    private static SelectList BuildPriorityOptions(TaskPriority selected)
-    {
-        var items = Enum.GetValues<TaskPriority>()
-            .Select(p => new { Value = (int)p, Display = p.ToString() })
-            .ToList();
-        return new SelectList(items, "Value", "Display", (int)selected);
-    }
-
-    private static string FormatSize(long bytes)
-    {
-        if (bytes < 1024) return $"{bytes} B";
-        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:0.#} KB";
-        if (bytes < 1024L * 1024 * 1024) return $"{bytes / (1024.0 * 1024):0.#} MB";
-        return $"{bytes / (1024.0 * 1024 * 1024):0.#} GB";
-    }
-
-    private static string? Truncate(string? s, int max)
-        => string.IsNullOrEmpty(s) ? s : (s.Length <= max ? s : s[..max]);
 
 }
 

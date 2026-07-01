@@ -311,7 +311,7 @@ body:has(#kanban-board) footer {
 }
 
 /* ===========================================================================
-   Preview Drawer Styles (Phase 2)
+   Preview Drawer Styles
    =========================================================================== */
 
 .drawer-backdrop {
@@ -374,21 +374,18 @@ body:has(#kanban-board) footer {
 .drawer-body-content::-webkit-scrollbar {
     width: 6px;
 }
-
 .drawer-body-content::-webkit-scrollbar-track {
     background: #f1f1f1;
 }
-
 .drawer-body-content::-webkit-scrollbar-thumb {
     background: #c1c7d0;
     border-radius: 3px;
 }
-
 .drawer-body-content::-webkit-scrollbar-thumb:hover {
     background: #a1a7b0;
 }
 
-/* Custom premium styling for the status dropdown to look like a Jira status button */
+/* Custom premium styling for the status dropdown */
 select.form-select.drawer-status-select {
     font-size: 0.75rem !important;
     font-weight: 700 !important;
@@ -403,43 +400,27 @@ select.form-select.drawer-status-select {
     display: inline-block !important;
     box-shadow: none !important;
 }
-
 select.form-select.drawer-status-select:focus {
     box-shadow: 0 0 0 2px rgba(0, 82, 204, 0.2) !important;
 }
-
 select.form-select.drawer-status-select.status-todo {
-    background-color: #F4F5F7 !important;
-    color: #42526E !important;
-    border-left: 4px solid #42526E !important;
+    background-color: #F4F5F7 !important; color: #42526E !important; border-left: 4px solid #42526E !important;
 }
 select.form-select.drawer-status-select.status-inprogress {
-    background-color: #DEEBFF !important;
-    color: #0052CC !important;
-    border-left: 4px solid #0052CC !important;
+    background-color: #DEEBFF !important; color: #0052CC !important; border-left: 4px solid #0052CC !important;
 }
 select.form-select.drawer-status-select.status-done {
-    background-color: #E3FCEF !important;
-    color: #006644 !important;
-    border-left: 4px solid #006644 !important;
+    background-color: #E3FCEF !important; color: #006644 !important; border-left: 4px solid #006644 !important;
 }
 select.form-select.drawer-status-select.status-blocked {
-    background-color: #FFEBE6 !important;
-    color: #BF2600 !important;
-    border-left: 4px solid #BF2600 !important;
+    background-color: #FFEBE6 !important; color: #BF2600 !important; border-left: 4px solid #BF2600 !important;
 }
 select.form-select.drawer-status-select.status-pending {
-    background-color: #FFF0B3 !important;
-    color: #172B4D !important;
-    border-left: 4px solid #FFAB00 !important;
+    background-color: #FFF0B3 !important; color: #172B4D !important; border-left: 4px solid #FFAB00 !important;
 }
 select.form-select.drawer-status-select.status-cancelled {
-    background-color: #E2E4E6 !important;
-    color: #5E6C84 !important;
-    border-left: 4px solid #5E6C84 !important;
+    background-color: #E2E4E6 !important; color: #5E6C84 !important; border-left: 4px solid #5E6C84 !important;
 }
-
-/* Hover effects */
 select.form-select.drawer-status-select.status-todo:hover { background-color: #EBECF0 !important; }
 select.form-select.drawer-status-select.status-inprogress:hover { background-color: #B3D4FF !important; }
 select.form-select.drawer-status-select.status-done:hover { background-color: #ABF5D1 !important; }
@@ -448,349 +429,170 @@ select.form-select.drawer-status-select.status-pending:hover { background-color:
 select.form-select.drawer-status-select.status-cancelled:hover { background-color: #DFE1E6 !important; }
 
 .drawer-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
+    display: flex; align-items: center; justify-content: center; height: 100%;
 }
 
 /* Minimalist Split Drawer Layout */
 .drawer-layout-container {
-    display: flex;
-    gap: 16px;
-    height: 100%;
+    display: flex; gap: 16px; height: 100%;
 }
-
 .drawer-main-panel {
-    flex: 1 1 auto;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+    flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 16px;
 }
-
 .drawer-sidebar-panel {
-    flex: 0 0 220px;
-    width: 220px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    border-left: 1px solid #DFE1E6;
-    padding-left: 16px;
-    padding-right: 8px;
+    flex: 0 0 220px; width: 220px; display: flex; flex-direction: column; gap: 16px;
+    border-left: 1px solid #DFE1E6; padding-left: 16px; padding-right: 8px;
 }
 
-/* On smaller screens or compact drawer viewports, stack layout */
 @media (max-width: 500px) {
-    .drawer-layout-container {
-        flex-direction: column;
-    }
-    .drawer-sidebar-panel {
-        flex: 0 0 auto;
-        width: 100%;
-        border-left: none;
-        padding-left: 0;
-        padding-right: 0;
-        border-top: 1px solid #DFE1E6;
-        padding-top: 16px;
-    }
+    .drawer-layout-container { flex-direction: column; }
+    .drawer-sidebar-panel { flex: 0 0 auto; width: 100%; border-left: none; padding-left: 0; padding-right: 0; border-top: 1px solid #DFE1E6; padding-top: 16px; }
 }
 
 /* Sleek Section Header */
 .ttms-section-label {
-    font-size: 0.72rem !important;
-    font-weight: 700;
-    color: #5E6C84;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 6px;
+    font-size: 0.72rem !important; font-weight: 700; color: #5E6C84;
+    text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;
 }
 
-/* Beautiful description wrapper */
 .task-description-wrapper {
-    background-color: #F4F5F7 !important;
-    border: 1px solid #DFE1E6 !important;
-    padding: 12px 14px !important;
-    border-radius: 6px !important;
+    background-color: #F4F5F7 !important; border: 1px solid #DFE1E6 !important;
+    padding: 12px 14px !important; border-radius: 6px !important;
 }
+.task-description img { max-width: 100% !important; height: auto !important; border-radius: 4px; }
 
-.task-description img {
-    max-width: 100% !important;
-    height: auto !important;
-    border-radius: 4px;
-}
-
-/* Clean tabs styling without bulky borders */
-#drawerActivityTabs {
-    border-bottom: 2px solid #E2E4E6;
-    gap: 16px;
-}
-
+#drawerActivityTabs { border-bottom: 2px solid #E2E4E6; gap: 16px; }
 #drawerActivityTabs .nav-link {
-    border: none !important;
-    background: transparent !important;
-    color: #5E6C84 !important;
-    font-weight: 600;
-    font-size: 0.8rem;
-    padding: 6px 0 !important;
-    position: relative;
-    transition: color 0.15s ease;
+    border: none !important; background: transparent !important; color: #5E6C84 !important;
+    font-weight: 600; font-size: 0.8rem; padding: 6px 0 !important; position: relative; transition: color 0.15s ease;
 }
-
 #drawerActivityTabs .nav-link .badge {
-    background-color: #DFE1E6 !important;
-    color: #42526E !important;
-    font-size: 0.7rem;
-    padding: 2px 6px;
-    border-radius: 10px;
-    margin-left: 4px;
+    background-color: #DFE1E6 !important; color: #42526E !important;
+    font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; margin-left: 4px;
 }
-
-#drawerActivityTabs .nav-link.active {
-    color: #0052CC !important;
-}
-
+#drawerActivityTabs .nav-link.active { color: #0052CC !important; }
 #drawerActivityTabs .nav-link.active::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background-color: #0052CC;
-    border-radius: 2px;
+    content: ''; position: absolute; bottom: -2px; left: 0; width: 100%;
+    height: 2px; background-color: #0052CC; border-radius: 2px;
 }
+#drawerActivityTabs .nav-link:hover:not(.active) { color: #172B4D !important; }
 
-#drawerActivityTabs .nav-link:hover:not(.active) {
-    color: #172B4D !important;
-}
-
-/* Sleek property list inside drawer sidebar */
-.drawer-meta-list {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
+.drawer-meta-list { display: flex; flex-direction: column; gap: 4px; }
 .drawer-meta-item {
-    display: grid;
-    grid-template-columns: 90px 1fr;
-    gap: 8px;
-    align-items: center;
-    padding: 6px 8px;
-    margin: 0 -8px;
-    border-radius: 4px;
-    font-size: 0.825rem;
-    transition: background-color 0.15s ease;
+    display: grid; grid-template-columns: 90px 1fr; gap: 8px; align-items: center;
+    padding: 6px 8px; margin: 0 -8px; border-radius: 4px; font-size: 0.825rem; transition: background-color 0.15s ease;
 }
+.drawer-meta-item:hover { background-color: #F4F5F7; }
+.drawer-meta-label { color: #5E6C84; font-weight: 500; font-size: 0.8rem; }
+.drawer-meta-value { font-weight: 500; color: #172B4D; display: inline-flex; align-items: center; gap: 8px; }
 
-.drawer-meta-item:hover {
-    background-color: #F4F5F7;
-}
-
-.drawer-meta-label {
-    color: #5E6C84;
-    font-weight: 500;
-    font-size: 0.8rem;
-}
-
-.drawer-meta-value {
-    font-weight: 500;
-    color: #172B4D;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-
-/* Work Log timeline style list */
-.drawer-worklogs-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-height: 250px;
-    overflow-y: auto;
-    padding-right: 4px;
-}
-
+.drawer-worklogs-list { display: flex; flex-direction: column; gap: 10px; max-height: 250px; overflow-y: auto; padding-right: 4px; }
 .drawer-worklog-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 8px 10px;
-    background: #FAFBFC;
-    border: 1px solid #DFE1E6;
-    border-radius: 6px;
-    position: relative;
-    transition: background-color 0.15s ease;
+    display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px;
+    background: #FAFBFC; border: 1px solid #DFE1E6; border-radius: 6px;
+    position: relative; transition: background-color 0.15s ease;
 }
+.drawer-worklog-item:hover { background-color: #F4F5F7; }
+.drawer-worklog-avatar { flex-shrink: 0; }
+.drawer-worklog-content { flex-grow: 1; min-width: 0; }
+.drawer-worklog-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; margin-bottom: 2px; }
+.drawer-worklog-user { font-weight: 600; color: #172B4D; }
+.drawer-worklog-date { color: #5E6C84; }
+.drawer-worklog-text { font-size: 0.78rem; color: #42526E; word-break: break-word; }
+.drawer-worklog-hours { font-size: 0.75rem; font-weight: 700; background-color: #DEEBFF; color: #0747A6; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+.drawer-worklog-delete { position: absolute; top: 6px; right: 8px; opacity: 0; transition: opacity 0.15s ease; }
+.drawer-worklog-item:hover .drawer-worklog-delete { opacity: 1; }
 
-.drawer-worklog-item:hover {
-    background-color: #F4F5F7;
-}
-
-.drawer-worklog-avatar {
-    flex-shrink: 0;
-}
-
-.drawer-worklog-content {
-    flex-grow: 1;
-    min-width: 0;
-}
-
-.drawer-worklog-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.75rem;
-    margin-bottom: 2px;
-}
-
-.drawer-worklog-user {
-    font-weight: 600;
-    color: #172B4D;
-}
-
-.drawer-worklog-date {
-    color: #5E6C84;
-}
-
-.drawer-worklog-text {
-    font-size: 0.78rem;
-    color: #42526E;
-    word-break: break-word;
-}
-
-.drawer-worklog-hours {
-    font-size: 0.75rem;
-    font-weight: 700;
-    background-color: #DEEBFF;
-    color: #0747A6;
-    padding: 2px 6px;
-    border-radius: 4px;
-    flex-shrink: 0;
-}
-
-.drawer-worklog-delete {
-    position: absolute;
-    top: 6px;
-    right: 8px;
-    opacity: 0;
-    transition: opacity 0.15s ease;
-}
-
-.drawer-worklog-item:hover .drawer-worklog-delete {
-    opacity: 1;
-}
-
-/* Attachment modern cards */
-.drawer-attachments-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-height: 250px;
-    overflow-y: auto;
-    padding-right: 4px;
-}
-
+.drawer-attachments-list { display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 4px; }
 .drawer-attachment-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
-    background-color: #FAFBFC;
-    border: 1px solid #DFE1E6;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
+    display: flex; align-items: center; justify-content: space-between; padding: 8px 12px;
+    background-color: #FAFBFC; border: 1px solid #DFE1E6; border-radius: 6px;
+    font-size: 0.8rem; transition: background-color 0.15s ease, border-color 0.15s ease;
 }
+.drawer-attachment-card:hover { background-color: #F4F5F7; border-color: #C1C7D0; }
+.drawer-attachment-info { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.drawer-attachment-icon { font-size: 1.1rem; color: #5E6C84; flex-shrink: 0; }
+.drawer-attachment-name { font-weight: 600; color: #0052CC; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
+.drawer-attachment-name:hover { text-decoration: underline; }
+.drawer-attachment-size { font-size: 0.72rem; color: #5E6C84; flex-shrink: 0; }
 
-.drawer-attachment-card:hover {
-    background-color: #F4F5F7;
-    border-color: #C1C7D0;
-}
-
-.drawer-attachment-info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-}
-
-.drawer-attachment-icon {
-    font-size: 1.1rem;
-    color: #5E6C84;
-    flex-shrink: 0;
-}
-
-.drawer-attachment-name {
-    font-weight: 600;
-    color: #0052CC;
-    text-decoration: none;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    overflow: hidden;
-}
-
-.drawer-attachment-name:hover {
-    text-decoration: underline;
-}
-
-.drawer-attachment-size {
-    font-size: 0.72rem;
-    color: #5E6C84;
-    flex-shrink: 0;
-}
-
-/* Beautiful modern timeline for history logs */
 .drawer-timeline {
-    position: relative;
-    padding-left: 20px;
-    margin-left: 10px;
-    border-left: 2px solid #E2E4E6;
-    max-height: 250px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    padding-top: 4px;
-    padding-bottom: 4px;
+    position: relative; padding-left: 20px; margin-left: 10px;
+    border-left: 2px solid #E2E4E6; max-height: 250px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 16px; padding-top: 4px; padding-bottom: 4px;
 }
-
-.drawer-timeline-item {
-    position: relative;
-    font-size: 0.8rem;
-}
-
+.drawer-timeline-item { position: relative; font-size: 0.8rem; }
 .drawer-timeline-dot {
-    position: absolute;
-    left: -26px;
-    top: 4px;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background-color: #DFE1E6;
-    border: 2px solid #ffffff;
-    box-shadow: 0 0 0 2px #E2E4E6;
+    position: absolute; left: -26px; top: 4px; width: 10px; height: 10px;
+    border-radius: 50%; background-color: #DFE1E6; border: 2px solid #ffffff; box-shadow: 0 0 0 2px #E2E4E6;
+}
+.drawer-timeline-item:first-child .drawer-timeline-dot { background-color: #0052CC; box-shadow: 0 0 0 2px #DEEBFF; }
+.drawer-timeline-meta { font-size: 0.72rem; color: #5E6C84; margin-bottom: 2px; }
+.drawer-timeline-user { font-weight: 600; color: #172B4D; }
+.drawer-timeline-content { color: #42526E; line-height: 1.3; }
+
+/* ===========================================================================
+   RESPONSIVE: Kanban Board breakpoints
+   =========================================================================== */
+
+/* Tablet (768px-1024px): narrower columns */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .kanban-column {
+        flex: 0 0 240px; width: 240px; max-width: 240px;
+        padding: 10px 8px 6px 8px;
+    }
+    .kanban-card { padding: 10px; }
+    .kanban-card-title { font-size: 0.82rem; }
+    .kanban-column-title { font-size: 0.72rem; }
 }
 
-.drawer-timeline-item:first-child .drawer-timeline-dot {
-    background-color: #0052CC;
-    box-shadow: 0 0 0 2px #DEEBFF;
+/* Small tablet / large phone (<768px) */
+@media (max-width: 768px) {
+    .kanban-column { flex: 0 0 260px; width: 260px; max-width: 260px; }
+    .kanban-card { padding: 10px; }
+    .kanban-card-title { font-size: 0.82rem; }
+    .kanban-card-meta { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .kanban-card-badges { flex-wrap: wrap; gap: 4px; }
+    .kanban-card-select-fallback { display: block !important; }
+    .view-toggle-btn { font-size: 0.78rem; padding: 3px 8px; }
+    .table-responsive { -webkit-overflow-scrolling: touch; }
 }
 
-.drawer-timeline-meta {
-    font-size: 0.72rem;
-    color: #5E6C84;
-    margin-bottom: 2px;
+/* Phone (<500px): full-width columns, snap scrolling */
+@media (max-width: 500px) {
+    .kanban-board {
+        gap: 8px; padding-bottom: 8px; overflow-x: auto;
+        -webkit-overflow-scrolling: touch; scroll-snap-type: x mandatory;
+    }
+    .kanban-column {
+        flex: 0 0 85vw; width: 85vw; max-width: 85vw;
+        scroll-snap-align: start; padding: 8px 6px 4px 6px;
+    }
+    .kanban-card { padding: 8px; margin-bottom: 6px; }
+    .kanban-card-title { font-size: 0.8rem; }
+    .kanban-card-meta { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .kanban-column-title { font-size: 0.7rem; }
+    .kanban-column-count { font-size: 0.65rem; padding: 1px 6px; }
+    .ttms-preview-drawer { width: 100vw; right: -100vw; padding: 14px; }
+    .ttms-preview-drawer.open { right: 0; }
+    .board-truncation-banner { font-size: 0.78rem; padding: 8px 10px; }
+    #ttms-toast-container { left: 0.5rem; right: 0.5rem; max-width: none; }
 }
 
-.drawer-timeline-user {
-    font-weight: 600;
-    color: #172B4D;
-}
+/* ===========================================================================
+   ACCESSIBILITY: Focus indicators & skip link
+   =========================================================================== */
 
-.drawer-timeline-content {
-    color: #42526E;
-    line-height: 1.3;
+.kanban-card:focus-visible {
+    outline: 3px solid #0052CC; outline-offset: 2px; border-radius: 6px;
 }
-
+.btn:focus-visible, a:focus-visible, select:focus-visible,
+input:focus-visible, textarea:focus-visible {
+    outline: 3px solid #0052CC; outline-offset: 2px;
+}
+.ttms-skip-link {
+    position: absolute; top: -100px; left: 8px; background: #0052CC; color: #fff;
+    padding: 8px 16px; z-index: 10000; border-radius: 0 0 4px 4px;
+    font-weight: 600; font-size: 0.9rem; text-decoration: none; transition: top 0.2s;
+}
+.ttms-skip-link:focus { top: 0; }

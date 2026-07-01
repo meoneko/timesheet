@@ -26,6 +26,7 @@ public class ProjectRestoreTests
     {
         public AuthorizationServiceHarness AuthHarness;
         public ProjectService Projects;
+        public ProjectMemberService Members;
         public ServiceProvider ServiceProvider;
         public Harness(AuthorizationServiceHarness ah)
         {
@@ -34,13 +35,15 @@ public class ProjectRestoreTests
             services.AddScoped(_ => DbContextFactory.Create(ah.DbName));
             ServiceProvider = services.BuildServiceProvider();
 
+            var history = new HistoryService(ah.Db);
             Projects = new ProjectService(
                 ah.Db,
-                new HistoryService(ah.Db),
+                history,
                 ah.Auth,
                 new HtmlSanitizationService(),
                 ah.UserManager,
                 ServiceProvider);
+            Members = new ProjectMemberService(ah.Db, history, ah.Auth, ah.UserManager);
         }
         public void Dispose()
         {

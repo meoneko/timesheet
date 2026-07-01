@@ -1,0 +1,15 @@
+@using TTMS.Web.Models.Enums
+@model BugSeverity?
+@{
+    var (label, badgeClass) = Model switch
+    {
+        BugSeverity.Critical => ("Critical", "bg-danger"),
+        BugSeverity.High => ("High", "bg-warning text-dark"),
+        BugSeverity.Medium => ("Medium", "bg-info text-dark"),
+        BugSeverity.Low => ("Low", "bg-secondary"),
+        _ => ("—", "bg-light text-muted")
+    };
+}
+<span class="badge @badgeClass fw-semibold" style="font-size: 0.72rem;">
+    <i class="bi bi-bug-fill me-1"></i>@label
+</span>

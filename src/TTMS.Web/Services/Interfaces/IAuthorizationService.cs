@@ -48,4 +48,16 @@ public interface IAuthorizationService
 
     /// <summary>True if the user can download an attachment (Admin or has access to its parent task/time entry).</summary>
     Task<bool> CanDownloadAttachmentAsync(string userId, Attachment attachment);
+
+    /// <summary>True if the user can view comments on the given entity (Admin or project member).</summary>
+    Task<bool> CanViewCommentsAsync(string userId, CommentEntityType entityType, int entityId);
+
+    /// <summary>True if the user can create a comment on the given entity (same as view — any project member).</summary>
+    Task<bool> CanCreateCommentAsync(string userId, CommentEntityType entityType, int entityId);
+
+    /// <summary>True if the user can edit a comment (Admin or comment author).</summary>
+    Task<bool> CanEditCommentAsync(string userId, int commentId);
+
+    /// <summary>True if the user can delete a comment (Admin or comment author).</summary>
+    Task<bool> CanDeleteCommentAsync(string userId, int commentId);
 }

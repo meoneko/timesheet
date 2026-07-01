@@ -12,5 +12,8 @@ public enum HistoryEvent
     StatusChanged = 4,
     AssignedChanged = 5,
     AttachmentAdded = 6,
-    AttachmentRemoved = 7
+    AttachmentRemoved = 7,
+    CommentAdded = 8, 
+    CommentUpdated = 9, 
+    CommentRemoved = 10
 }

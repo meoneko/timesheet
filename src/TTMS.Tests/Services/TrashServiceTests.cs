@@ -20,6 +20,7 @@ public class TrashServiceTests
     {
         public AuthorizationServiceHarness AuthHarness;
         public ProjectService Projects;
+        public ProjectMemberService Members;
         public TaskService Tasks;
         public TimeEntryService Entries;
         public TrashService Trash;
@@ -35,6 +36,7 @@ public class TrashServiceTests
             var sanitizer = new HtmlSanitizationService();
             var time = new TimeConversionService();
             Projects = new ProjectService(ah.Db, history, ah.Auth, sanitizer, ah.UserManager, ServiceProvider);
+            Members = new ProjectMemberService(ah.Db, history, ah.Auth, ah.UserManager);
             Tasks = new TaskService(ah.Db, ah.Auth, history, time, sanitizer);
             Entries = new TimeEntryService(ah.Db, history, ah.Auth, sanitizer, time);
             Trash = new TrashService(ah.Db, ah.Auth, Projects, Tasks, Entries);
@@ -175,7 +177,7 @@ public class TrashServiceTests
         // Alice owns P1; Eve owns P2. Bob is just a Member of P1.
         var p1 = await CreateProjectAsync(h, AliceId, "P1", "P1");
         var p2 = await CreateProjectAsync(h, EveId, "P2", "P2");
-        await h.Projects.AddMemberAsync(p1.Id,
+        await h.Members.AddMemberAsync(p1.Id,
             new AddMemberViewModel { ProjectId = p1.Id, UserId = BobId, Role = ProjectMemberRole.Member }, AliceId);
 
         var t1 = await CreateTaskAsync(h, p1, AliceId, "Alice task");
@@ -206,7 +208,7 @@ public class TrashServiceTests
         await SeedAsync(h.AuthHarness);
         var p = await CreateProjectAsync(h, AliceId, "P", "P");
         // Add Bob as a Member so he can log time on tasks in this project.
-        await h.Projects.AddMemberAsync(p.Id,
+        await h.Members.AddMemberAsync(p.Id,
             new AddMemberViewModel { ProjectId = p.Id, UserId = BobId, Role = ProjectMemberRole.Member }, AliceId);
         var t = await CreateTaskAsync(h, p, AliceId, "T");
         var aliceEntry = await h.Entries.CreateAsync(
@@ -236,7 +238,7 @@ public class TrashServiceTests
         using var h = Build();
         await SeedAsync(h.AuthHarness);
         var p = await CreateProjectAsync(h, AliceId, "P", "P");
-        await h.Projects.AddMemberAsync(p.Id,
+        await h.Members.AddMemberAsync(p.Id,
             new AddMemberViewModel { ProjectId = p.Id, UserId = BobId, Role = ProjectMemberRole.Member }, AliceId);
         var t = await CreateTaskAsync(h, p, AliceId, "T");
         var aliceEntry = await h.Entries.CreateAsync(
@@ -303,9 +305,9 @@ public class TrashServiceTests
         await SeedAsync(h.AuthHarness);
         var p1 = await CreateProjectAsync(h, AliceId, "P1", "P1");
         var p2 = await CreateProjectAsync(h, AliceId, "P2", "P2");
-        await h.Projects.AddMemberAsync(p1.Id,
+        await h.Members.AddMemberAsync(p1.Id,
             new AddMemberViewModel { ProjectId = p1.Id, UserId = BobId, Role = ProjectMemberRole.Owner }, AliceId);
-        await h.Projects.AddMemberAsync(p2.Id,
+        await h.Members.AddMemberAsync(p2.Id,
             new AddMemberViewModel { ProjectId = p2.Id, UserId = BobId, Role = ProjectMemberRole.Owner }, AliceId);
         await h.Projects.SoftDeleteAsync(p1.Id, AliceId);
         await h.Projects.SoftDeleteAsync(p2.Id, BobId);
@@ -425,7 +427,7 @@ public class TrashServiceTests
         using var h = Build();
         await SeedAsync(h.AuthHarness);
         var p = await CreateProjectAsync(h, AliceId, "P", "P");
-        await h.Projects.AddMemberAsync(p.Id,
+        await h.Members.AddMemberAsync(p.Id,
             new AddMemberViewModel { ProjectId = p.Id, UserId = BobId, Role = ProjectMemberRole.Member }, AliceId);
         var t = await CreateTaskAsync(h, p, AliceId, "T");
         var e = await h.Entries.CreateAsync(

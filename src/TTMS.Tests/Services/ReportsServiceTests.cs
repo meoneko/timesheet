@@ -1,7 +1,5 @@
-using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using TTMS.Tests.Helpers;
-using TTMS.Web.Data;
 using TTMS.Web.Models.Entities;
 using TTMS.Web.Models.Enums;
 using TTMS.Web.Models.ViewModels;
@@ -12,59 +10,120 @@ namespace TTMS.Tests.Services;
 
 public class ReportsServiceTests
 {
-    private readonly ApplicationDbContext _db;
-    private readonly ReportsService _service;
+    private const string AdminId = "admin-1";
+    private const string AliceId = "alice";
+    private const string BobId = "bob";
 
-    public ReportsServiceTests()
+    private sealed class Harness : IDisposable
     {
-        _db = DbContextFactory.Create();
-        _db.Database.EnsureCreated();
-        _service = new ReportsService(_db, new TimeConversionService());
+        public AuthorizationServiceHarness AuthHarness;
+        public ProjectService Projects;
+        public ProjectMemberService Members;
+        public TaskService Tasks;
+        public TimeEntryService TimeEntries;
+        public ReportsService Reports;
+        public int ProjectId;
+
+        public Harness(AuthorizationServiceHarness ah, int projectId)
+        {
+            AuthHarness = ah;
+            var history = new HistoryService(ah.Db);
+            var sanitizer = new HtmlSanitizationService();
+            var timeConv = new TimeConversionService();
+            Projects = new ProjectService(ah.Db, history, ah.Auth, sanitizer, ah.UserManager, null!);
+            Members = new ProjectMemberService(ah.Db, history, ah.Auth, ah.UserManager);
+            Tasks = new TaskService(ah.Db, ah.Auth, history, timeConv, sanitizer);
+            TimeEntries = new TimeEntryService(ah.Db, history, ah.Auth, sanitizer, timeConv);
+            Reports = new ReportsService(ah.Db, timeConv);
+            ProjectId = projectId;
+        }
+        public void Dispose() => AuthHarness.Dispose();
+    }
+
+    private static async Task<Harness> BuildWithMinutesAsync(int aliceMinutes, int bobMinutes)
+    {
+        var ah = new AuthorizationServiceHarness();
+        ah.Db.Database.EnsureCreated();
+        await ah.SeedUserAsync(AdminId, "admin@test.local", asAdmin: true);
+        await ah.SeedUserAsync(AliceId, "alice@test.local");
+        await ah.SeedUserAsync(BobId, "bob@test.local");
+
+        var history = new HistoryService(ah.Db);
+        var sanitizer = new HtmlSanitizationService();
+        var timeConv = new TimeConversionService();
+        var projects = new ProjectService(ah.Db, history, ah.Auth, sanitizer, ah.UserManager, null!);
+        var members = new ProjectMemberService(ah.Db, history, ah.Auth, ah.UserManager);
+        var tasks = new TaskService(ah.Db, ah.Auth, history, timeConv, sanitizer);
+        var entries = new TimeEntryService(ah.Db, history, ah.Auth, sanitizer, timeConv);
+
+        int projId = (await projects.CreateAsync(new ProjectEditViewModel
+        { Code = "RPT", Name = "Report Test", Status = ProjectStatus.Active }, AdminId)).ProjectId!.Value;
+        await members.AddMemberAsync(projId, new AddMemberViewModel { UserId = AliceId, Role = ProjectMemberRole.Member }, AdminId);
+        await members.AddMemberAsync(projId, new AddMemberViewModel { UserId = BobId, Role = ProjectMemberRole.Member }, AdminId);
+
+        int taskId = (await tasks.CreateAsync(new TaskEditViewModel
+        { ProjectId = projId, Title = "Report Task", DescriptionHtml = "<p>Test</p>",
+            Status = TaskItemStatus.Todo, Priority = TaskPriority.Medium, AssigneeId = AliceId }, AliceId)).TaskId!.Value;
+
+        if (aliceMinutes > 0)
+            await entries.CreateAsync(new TimeEntryEditViewModel
+            { TaskId = taskId, WorkDate = DateTime.Today, DurationHours = aliceMinutes / 60m, WorkLogHtml = "<p>A</p>" }, AliceId);
+        if (bobMinutes > 0)
+            await entries.CreateAsync(new TimeEntryEditViewModel
+            { TaskId = taskId, WorkDate = DateTime.Today, DurationHours = bobMinutes / 60m, WorkLogHtml = "<p>B</p>" }, BobId);
+
+        return new Harness(ah, projId);
     }
 
     [Fact]
-    public async Task BuildProjectSummaryAsync_NullProjectId_PopulatesProjectsDropdownAndReturnsEmptyReport()
+    public async Task BuildMyTimesheet_FiltersByUser()
     {
-        // Arrange
-        _db.Projects.Add(new Project { Id = 1, Code = "P1", Name = "Project 1", Status = ProjectStatus.Active, CreatedById = "system" });
-        _db.Projects.Add(new Project { Id = 2, Code = "P2", Name = "Project 2", Status = ProjectStatus.Active, CreatedById = "system" });
-        _db.Projects.Add(new Project { Id = 3, Code = "P3", Name = "Project 3", Status = ProjectStatus.Archived, CreatedById = "system" });
-        await _db.SaveChangesAsync();
-
-        var filter = new ReportsFilterViewModel { ProjectId = null };
-
-        // Act
-        var report = await _service.BuildProjectSummaryAsync(filter);
-
-        // Assert
-        Assert.NotNull(report);
-        Assert.Equal(string.Empty, report.ProjectCode);
-        Assert.Empty(report.Rows);
-        Assert.NotNull(filter.Projects);
-        
-        var projectItems = filter.Projects.Cast<SelectListItem>().ToList();
-        Assert.Equal(2, projectItems.Count); // Only active projects P1 and P2
-        Assert.Contains(projectItems, item => item.Text == "P1 — Project 1");
-        Assert.Contains(projectItems, item => item.Text == "P2 — Project 2");
+        var h = await BuildWithMinutesAsync(aliceMinutes: 180, bobMinutes: 120);
+        using (h)
+        {
+            var report = await h.Reports.BuildMyTimesheetAsync(
+                new ReportsFilterViewModel { FromDate = DateTime.Today, ToDate = DateTime.Today }, AliceId);
+            Assert.Single(report.Rows);
+            Assert.Equal(3m, report.TotalHours);
+        }
     }
 
     [Fact]
-    public async Task BuildProjectSummaryAsync_ValidProjectId_PopulatesReportAndDropdown()
+    public async Task BuildTeamTimesheet_GroupsByUser()
     {
-        // Arrange
-        var p = new Project { Id = 1, Code = "P1", Name = "Project 1", Status = ProjectStatus.Active, CreatedById = "system" };
-        _db.Projects.Add(p);
-        await _db.SaveChangesAsync();
+        var h = await BuildWithMinutesAsync(aliceMinutes: 180, bobMinutes: 120);
+        using (h)
+        {
+            var report = await h.Reports.BuildTeamTimesheetAsync(
+                new ReportsFilterViewModel { FromDate = DateTime.Today, ToDate = DateTime.Today });
+            Assert.Equal(2, report.UserGroups.Count);
+            Assert.Equal(5m, report.TotalHours);
+        }
+    }
 
-        var filter = new ReportsFilterViewModel { ProjectId = 1 };
+    [Fact]
+    public async Task BuildProjectSummary_HasVariance()
+    {
+        var h = await BuildWithMinutesAsync(aliceMinutes: 300, bobMinutes: 0);
+        using (h)
+        {
+            var report = await h.Reports.BuildProjectSummaryAsync(
+                new ReportsFilterViewModel { ProjectId = h.ProjectId, FromDate = DateTime.Today, ToDate = DateTime.Today });
+            Assert.NotNull(report);
+            Assert.True(report!.TotalActualHours > 0);
+        }
+    }
 
-        // Act
-        var report = await _service.BuildProjectSummaryAsync(filter);
-
-        // Assert
-        Assert.NotNull(report);
-        Assert.Equal("P1", report.ProjectCode);
-        Assert.Equal("Project 1", report.ProjectName);
-        Assert.NotNull(filter.Projects);
+    [Fact]
+    public async Task BuildUserSummary_OnlyUsersWithHours()
+    {
+        var h = await BuildWithMinutesAsync(aliceMinutes: 120, bobMinutes: 0);
+        using (h)
+        {
+            var report = await h.Reports.BuildUserSummaryAsync(
+                new ReportsFilterViewModel { FromDate = DateTime.Today, ToDate = DateTime.Today });
+            Assert.Single(report.Rows);
+            Assert.Equal(2m, report.TotalHours);
+        }
     }
 }

@@ -117,6 +117,10 @@ else
                                 <a asp-action="Details" asp-route-id="@p.Id" class="fw-semibold text-decoration-none project-name-link">
                                     @p.Name
                                 </a>
+                                @if (p.CommentCount > 0)
+                                {
+                                    <span class="text-muted small" title="@p.CommentCount comment(s)"><i class="bi bi-chat-dots"></i> @p.CommentCount</span>
+                                }
                             </div>
                         </td>
                         <td>

@@ -1,0 +1,164 @@
+@model List<CommentViewModel>
+@using TTMS.Web.Models.Enums
+@using TTMS.Web.Models.ViewModels
+@{
+    var entityType = (CommentEntityType)(ViewData["EntityType"] ?? CommentEntityType.Task);
+    var entityId = (int)(ViewData["EntityId"] ?? 0);
+    var currentPage = (int)(ViewData["CurrentPage"] ?? 1);
+    var pageSize = (int)(ViewData["PageSize"] ?? 5);
+    var returnUrl = (string)(ViewData["ReturnUrl"] ?? Context.Request.Path + Context.Request.QueryString);
+}
+
+<div class="comment-list" id="commentList">
+    @if (!Model.Any())
+    {
+        <div class="text-center py-4 text-muted">
+            <i class="bi bi-chat-dots fs-2 d-block mb-2"></i>
+            <em>No comments yet. Be the first to comment!</em>
+        </div>
+    }
+    else
+    {
+        @foreach (var comment in Model)
+        {
+            <div class="comment-item mb-3" id="comment-@comment.Id">
+                <div class="d-flex gap-2">
+                    <span class="avatar-circle avatar-bg-@comment.AvatarBgIndex flex-shrink-0" title="@comment.AuthorName">@comment.AuthorInitials</span>
+
+                    <div class="flex-grow-1">
+                        <div class="comment-body">
+                            <div class="d-flex justify-content-between align-items-baseline mb-1">
+                                <span class="fw-semibold small">@comment.AuthorName</span>
+                                <span class="text-muted" style="font-size: 0.75rem;">@comment.CreatedAt.ToString("yyyy-MM-dd HH:mm")</span>
+                            </div>
+                            <div class="comment-content" id="commentContent-@comment.Id">@Html.Raw(comment.ContentHtml)</div>
+                            @if (comment.IsEdited)
+                            {
+                                <span class="text-muted" style="font-size: 0.7rem;">(edited @comment.UpdatedAt.ToString("yyyy-MM-dd HH:mm"))</span>
+                            }
+
+                            @if (comment.AttachmentCount > 0)
+                            {
+                                <div class="small text-muted mt-1">
+                                    <i class="bi bi-paperclip"></i> @comment.AttachmentCount attachment(s)
+                                </div>
+                            }
+
+                            <div class="comment-actions mt-1">
+                                <button type="button" class="btn btn-sm btn-link text-muted p-0 me-2 reply-toggle" data-comment-id="@comment.Id">
+                                    <i class="bi bi-reply"></i> Reply
+                                </button>
+                                @if (comment.CanEdit)
+                                {
+                                    <button type="button" class="btn btn-sm btn-link text-muted p-0 me-2 edit-toggle" data-comment-id="@comment.Id">
+                                        <i class="bi bi-pencil"></i> Edit
+                                    </button>
+                                }
+                                @if (comment.CanDelete)
+                                {
+                                    <form asp-controller="Comments" asp-action="Delete" asp-route-id="@comment.Id" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="returnUrl" value="@returnUrl" />
+                                        <button type="submit" class="btn btn-sm btn-link text-danger p-0" onclick="return confirm('Delete this comment? Replies will also be removed.');">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
+                                    </form>
+                                }
+                            </div>
+
+                            <div class="reply-form mt-2" id="replyForm-@comment.Id" style="display: none;">
+                                <form asp-controller="Comments" asp-action="Create" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="EntityType" value="@entityType" />
+                                    <input type="hidden" name="EntityId" value="@entityId" />
+                                    <input type="hidden" name="ParentCommentId" value="@comment.Id" />
+                                    <input type="hidden" name="returnUrl" value="@returnUrl" />
+                                    <textarea name="ContentHtml" class="form-control form-control-sm mb-1" rows="2" placeholder="Write a reply..." required></textarea>
+                                    <button type="submit" class="btn btn-sm btn-primary">Reply</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary reply-cancel" data-comment-id="@comment.Id">Cancel</button>
+                                </form>
+                            </div>
+
+                            @if (comment.CanEdit)
+                            {
+                                <div class="edit-form mt-2" id="editForm-@comment.Id" style="display: none;">
+                                    <form asp-controller="Comments" asp-action="Edit" asp-route-id="@comment.Id" method="post">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="returnUrl" value="@returnUrl" />
+                                        <textarea name="contentHtml" class="form-control form-control-sm mb-1" rows="3" required>@comment.ContentHtml</textarea>
+                                        <button type="submit" class="btn btn-sm btn-primary">Save</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary edit-cancel" data-comment-id="@comment.Id">Cancel</button>
+                                    </form>
+                                </div>
+                            }
+                        </div>
+
+                        @if (comment.Replies.Any())
+                        {
+                            <div class="comment-replies mt-2 ms-3 border-start ps-3">
+                                @foreach (var reply in comment.Replies)
+                                {
+                                    <div class="comment-item mb-2" id="comment-@reply.Id">
+                                        <div class="d-flex gap-2">
+                                            <span class="avatar-circle avatar-bg-@reply.AvatarBgIndex flex-shrink-0" style="width: 28px; height: 28px; font-size: 0.7rem;" title="@reply.AuthorName">@reply.AuthorInitials</span>
+                                            <div class="flex-grow-1">
+                                                <div class="comment-body">
+                                                    <div class="d-flex justify-content-between align-items-baseline mb-1">
+                                                        <span class="fw-semibold small">@reply.AuthorName</span>
+                                                        <span class="text-muted" style="font-size: 0.75rem;">@reply.CreatedAt.ToString("yyyy-MM-dd HH:mm")</span>
+                                                    </div>
+                                                    <div class="comment-content" id="commentContent-@reply.Id">@Html.Raw(reply.ContentHtml)</div>
+                                                    @if (reply.IsEdited)
+                                                    {
+                                                        <span class="text-muted" style="font-size: 0.7rem;">(edited)</span>
+                                                    }
+                                                    @if (reply.AttachmentCount > 0)
+                                                    {
+                                                        <div class="small text-muted mt-1">
+                                                            <i class="bi bi-paperclip"></i> @reply.AttachmentCount attachment(s)
+                                                        </div>
+                                                    }
+                                                    <div class="comment-actions mt-1">
+                                                        @if (reply.CanEdit)
+                                                        {
+                                                            <button type="button" class="btn btn-sm btn-link text-muted p-0 me-2 edit-toggle" data-comment-id="@reply.Id">
+                                                                <i class="bi bi-pencil"></i> Edit
+                                                            </button>
+                                                        }
+                                                        @if (reply.CanDelete)
+                                                        {
+                                                            <form asp-controller="Comments" asp-action="Delete" asp-route-id="@reply.Id" method="post" class="d-inline">
+                                                                @Html.AntiForgeryToken()
+                                                                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                                                                <button type="submit" class="btn btn-sm btn-link text-danger p-0" onclick="return confirm('Delete this reply?');">
+                                                                    <i class="bi bi-trash"></i> Delete
+                                                                </button>
+                                                            </form>
+                                                        }
+                                                    </div>
+
+                                                    @if (reply.CanEdit)
+                                                    {
+                                                        <div class="edit-form mt-2" id="editForm-@reply.Id" style="display: none;">
+                                                            <form asp-controller="Comments" asp-action="Edit" asp-route-id="@reply.Id" method="post">
+                                                                @Html.AntiForgeryToken()
+                                                                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                                                                <textarea name="contentHtml" class="form-control form-control-sm mb-1" rows="2" required>@reply.ContentHtml</textarea>
+                                                                <button type="submit" class="btn btn-sm btn-primary">Save</button>
+                                                                <button type="button" class="btn btn-sm btn-outline-secondary edit-cancel" data-comment-id="@reply.Id">Cancel</button>
+                                                            </form>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>

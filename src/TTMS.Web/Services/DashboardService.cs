@@ -14,17 +14,20 @@ public class DashboardService : IDashboardService
     private readonly IAuthorizationService _authz;
     private readonly ITimeConversionService _time;
     private readonly UserManager<ApplicationUser> _users;
+    private readonly ICommentService _comments;
 
     public DashboardService(
         ApplicationDbContext db,
         IAuthorizationService authz,
         ITimeConversionService time,
-        UserManager<ApplicationUser> users)
+        UserManager<ApplicationUser> users,
+        ICommentService comments)
     {
         _db = db;
         _authz = authz;
         _time = time;
         _users = users;
+        _comments = comments;
     }
 
     public async Task<UserDashboardViewModel> GetUserDashboardAsync(string userId, CancellationToken ct = default)
@@ -132,6 +135,8 @@ public class DashboardService : IDashboardService
             WorkLogPreview = BuildPreview(e.WorkLogText),
         }).ToList();
 
+        vm.RecentComments = await _comments.GetRecentForUserDashboardAsync(userId);
+
         return vm;
     }
 
@@ -231,6 +236,8 @@ public class DashboardService : IDashboardService
         .ThenBy(m => m.DisplayName)
         .ToList();
 
+        var recentComments = await _comments.GetRecentForProjectDashboardAsync(projectId);
+
         return new ProjectDashboardViewModel
         {
             ProjectId = project.Id,
@@ -247,6 +254,7 @@ public class DashboardService : IDashboardService
             VariancePct = variancePct,
             StatusBreakdown = statusBreakdown,
             MemberLoad = memberLoad,
+            RecentComments = recentComments,
             CanManage = canManage,
         };
     }
@@ -431,6 +439,8 @@ public class DashboardService : IDashboardService
                 HoursThisMonth = _time.MinutesToHours((int)hoursData.GetValueOrDefault(u.Id, 0)),
             }).ToList();
         }
+
+        vm.RecentComments = await _comments.GetRecentForAdminDashboardAsync();
 
         return vm;
     }

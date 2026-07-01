@@ -1,0 +1,66 @@
+@model List<CommentFeedRow>
+@using TTMS.Web.Models.Enums
+@using TTMS.Web.Models.ViewModels
+@{
+    string RelTime(DateTime utc)
+    {
+        var diff = DateTime.UtcNow - utc;
+        if (diff.TotalSeconds < 60) return "just now";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes} min ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+        return utc.ToLocalTime().ToString("yyyy-MM-dd");
+    }
+}
+
+@if (!Model.Any())
+{
+    <div class="text-center text-muted py-3">No recent comments.</div>
+}
+else
+{
+    <ul class="list-group list-group-flush">
+        @foreach (var c in Model)
+        {
+            <li class="list-group-item">
+                <div class="d-flex">
+                    <span class="avatar-circle avatar-bg-@c.AvatarBgIndex flex-shrink-0 me-3" style="width: 32px; height: 32px; font-size: 0.75rem;" title="@c.AuthorName">@c.AuthorInitials</span>
+                    <div class="flex-grow-1">
+                        <div class="small">
+                            <strong>@c.AuthorName</strong>
+                            <span class="text-muted">commented on</span>
+                            @if (!string.IsNullOrWhiteSpace(c.EntityTitle))
+                            {
+                                @if (c.EntityType == CommentEntityType.Task)
+                                {
+                                    <a asp-controller="Tasks" asp-action="Details" asp-route-projectId="@c.ProjectId" asp-route-id="@c.EntityId" class="fw-semibold text-decoration-none">@c.EntityTitle</a>
+                                }
+                                else if (c.EntityType == CommentEntityType.Project)
+                                {
+                                    <a asp-controller="Projects" asp-action="Details" asp-route-id="@c.EntityId" class="fw-semibold text-decoration-none">@c.EntityTitle</a>
+                                }
+                                else
+                                {
+                                    <span class="fw-semibold">@c.EntityTitle</span>
+                                }
+                            }
+                        </div>
+                        <div class="text-muted small mt-1" style="font-size: 0.8rem;">
+                            @if (!string.IsNullOrWhiteSpace(c.ContentPreview))
+                            {
+                                <span>"@c.ContentPreview"</span>
+                            }
+                        </div>
+                        <div class="text-muted small mt-1" style="font-size: 0.75rem;">
+                            @if (!string.IsNullOrWhiteSpace(c.ProjectCode))
+                            {
+                                <span class="badge bg-light text-dark border me-1">@c.ProjectCode</span>
+                            }
+                            <span>@RelTime(c.CreatedAt)</span>
+                        </div>
+                    </div>
+                </div>
+            </li>
+        }
+    </ul>
+}

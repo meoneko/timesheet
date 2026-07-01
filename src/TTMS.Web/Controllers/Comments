@@ -1,0 +1,146 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using TTMS.Web.Models.Enums;
+using TTMS.Web.Models.ViewModels;
+using TTMS.Web.Services;
+
+namespace TTMS.Web.Controllers;
+
+/// <summary>
+/// Comment CRUD per the comment feature spec.
+/// Routes: POST /Comments/Create, POST /Comments/Edit/{id}, POST /Comments/Delete/{id},
+///         GET  /Comments/List (partial for Load More),
+///         POST /Comments/{id}/Attachments (upload attachment to a comment).
+/// </summary>
+[Authorize]
+public class CommentsController : BaseController
+{
+    private readonly ICommentService _comments;
+    private readonly IAttachmentService _attachments;
+    private readonly TTMS.Web.Services.IAuthorizationService _authz;
+
+    public CommentsController(
+        ICommentService comments,
+        IAttachmentService attachments,
+        TTMS.Web.Services.IAuthorizationService authz,
+        ILogger<CommentsController> logger) : base(logger)
+    {
+        _comments = comments;
+        _attachments = attachments;
+        _authz = authz;
+    }
+
+    // ===========================================================================
+    // List (partial — for Load More AJAX)
+    // ===========================================================================
+
+    [HttpGet]
+    public async Task<IActionResult> List(CommentEntityType entityType, int entityId, int page = 1, int pageSize = 5, CancellationToken ct = default)
+    {
+        var comments = await _comments.ListAsync(entityType, entityId, CurrentUserId(), page, pageSize, ct);
+        ViewData["EntityType"] = entityType;
+        ViewData["EntityId"] = entityId;
+        ViewData["CurrentPage"] = page;
+        ViewData["PageSize"] = pageSize;
+        return PartialView("_CommentList", comments);
+    }
+
+    // ===========================================================================
+    // Create
+    // ===========================================================================
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Create(CommentCreateViewModel model, string? returnUrl, CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+        {
+            TempData["ErrorMessage"] = "Comment content is required.";
+            return RedirectBack(returnUrl);
+        }
+
+        var result = await _comments.CreateAsync(model.EntityType, model.EntityId, model.ParentCommentId, model.ContentHtml, CurrentUserId());
+        if (!result.Succeeded)
+        {
+            TempData["ErrorMessage"] = result.Error ?? "Could not create comment.";
+        }
+        else
+        {
+            TempData["StatusMessage"] = "Comment added.";
+        }
+
+        return RedirectBack(returnUrl);
+    }
+
+    // ===========================================================================
+    // Edit
+    // ===========================================================================
+
+    [HttpPost("{id:int}/Edit")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int id, string contentHtml, string? returnUrl, CancellationToken ct)
+    {
+        var result = await _comments.UpdateAsync(id, contentHtml, CurrentUserId());
+        if (!result.Succeeded)
+        {
+            TempData["ErrorMessage"] = result.Error ?? "Could not update comment.";
+        }
+        else
+        {
+            TempData["StatusMessage"] = "Comment updated.";
+        }
+
+        return RedirectBack(returnUrl);
+    }
+
+    // ===========================================================================
+    // Delete (soft)
+    // ===========================================================================
+
+    [HttpPost("{id:int}/Delete")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Delete(int id, string? returnUrl, CancellationToken ct)
+    {
+        var result = await _comments.SoftDeleteAsync(id, CurrentUserId());
+        if (!result.Succeeded)
+        {
+            TempData["ErrorMessage"] = result.Error ?? "Could not delete comment.";
+        }
+        else
+        {
+            TempData["StatusMessage"] = "Comment deleted.";
+        }
+
+        return RedirectBack(returnUrl);
+    }
+
+    // ===========================================================================
+    // Attachment upload (POST to a comment)
+    // ===========================================================================
+
+    [HttpPost("{id:int}/Attachments")]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(60 * 1024 * 1024)]
+    public async Task<IActionResult> UploadAttachment(int id, IFormFile file, string? returnUrl, CancellationToken ct)
+    {
+        var result = await _attachments.UploadAsync(AttachmentEntityType.Comment, id, file, CurrentUserId(), ct);
+        if (!result.Succeeded)
+            TempData["ErrorMessage"] = result.Error ?? "Upload failed.";
+        else
+            TempData["StatusMessage"] = "File uploaded.";
+
+        return RedirectBack(returnUrl);
+    }
+
+    // ===========================================================================
+    // Private helpers
+    // ===========================================================================
+
+    private IActionResult RedirectBack(string? returnUrl)
+    {
+        if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+            return Redirect(returnUrl);
+        return RedirectToAction("Index", "Home");
+    }
+}

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status *)",
+      "Bash(dotnet build *)",
+      "Bash(dotnet tool *)",
+      "Bash(dotnet ef *)",
+      "Bash(sqlite3 src/TTMS.Web/App_Data/ttms.db \"SELECT MigrationId FROM __EFMigrationsHistory ORDER BY MigrationId;\")",
+      "Bash(git checkout *)",
+      "Bash(find src/TTMS.Web/App_Data -iname \"*.db*\")",
+      "Bash(grep -n \"ConnectionString\\\\|Sqlite\" src/TTMS.Web/appsettings*.json src/TTMS.Web/Program.cs)"
+    ]
+  }
+}

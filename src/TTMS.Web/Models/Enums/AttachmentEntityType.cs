@@ -6,5 +6,6 @@
 public enum AttachmentEntityType
 {
     Task = 0,
-    TimeEntry = 1
+    TimeEntry = 1,
+    Comment = 2
 }

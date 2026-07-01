@@ -20,6 +20,11 @@
 <div class="drawer-header border-bottom pb-2 mb-3 d-flex justify-content-between align-items-center">
     <div class="d-flex align-items-center gap-2">
         <span class="badge bg-secondary text-white fw-bold" style="font-size: 0.8rem;">@Model.ProjectCode-@Model.Id</span>
+        <partial name="_ItemTypeBadge" model="Model.ItemType" />
+        @if (Model.ItemType == WorkItemType.Bug && Model.Severity.HasValue)
+        {
+            <partial name="_BugSeverityBadge" model="Model.Severity" />
+        }
         @if (Model.ViewerCanEdit)
         {
             <a asp-action="Edit" asp-route-projectId="@Model.ProjectId" asp-route-id="@Model.Id" class="btn btn-sm btn-light border py-1 px-2 d-inline-flex align-items-center gap-1" style="font-size: 0.75rem;">
@@ -51,7 +56,7 @@
         <div class="drawer-main-panel">
             <!-- Description -->
             <div>
-                <div class="ttms-section-label">Description</div>
+                <div class="ttms-section-label">@(Model.ItemType == WorkItemType.Bug ? "Additional Context" : "Description")</div>
                 <div class="task-description-wrapper">
                     @if (string.IsNullOrWhiteSpace(Model.DescriptionHtml))
                     {
@@ -63,6 +68,52 @@
                     }
                 </div>
             </div>
+
+            @if (Model.ItemType == WorkItemType.Bug)
+            {
+                <div>
+                    <div class="ttms-section-label">Steps to Reproduce</div>
+                    <div class="task-description-wrapper">
+                        @if (string.IsNullOrWhiteSpace(Model.StepsToReproduceHtml))
+                        {
+                            <span class="text-muted italic small">No steps provided.</span>
+                        }
+                        else
+                        {
+                            <div class="task-description small">@Html.Raw(Model.StepsToReproduceHtml)</div>
+                        }
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="ttms-section-label">Expected</div>
+                        <div class="task-description-wrapper">
+                            @if (string.IsNullOrWhiteSpace(Model.ExpectedBehaviorHtml))
+                            {
+                                <span class="text-muted italic small">Not specified.</span>
+                            }
+                            else
+                            {
+                                <div class="task-description small">@Html.Raw(Model.ExpectedBehaviorHtml)</div>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="ttms-section-label">Actual</div>
+                        <div class="task-description-wrapper">
+                            @if (string.IsNullOrWhiteSpace(Model.ActualBehaviorHtml))
+                            {
+                                <span class="text-muted italic small">Not specified.</span>
+                            }
+                            else
+                            {
+                                <div class="task-description small">@Html.Raw(Model.ActualBehaviorHtml)</div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
 
             <!-- Activity Tabs -->
             <div>
@@ -303,6 +354,24 @@
             <div>
                 <div class="ttms-section-label">Details</div>
                 <div class="drawer-meta-list">
+                    @if (Model.ItemType == WorkItemType.Bug)
+                    {
+                        <div class="drawer-meta-item">
+                            <span class="drawer-meta-label">Severity</span>
+                            <span class="drawer-meta-value">
+                                <partial name="_BugSeverityBadge" model="Model.Severity" />
+                            </span>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(Model.Environment))
+                        {
+                            <div class="drawer-meta-item">
+                                <span class="drawer-meta-label">Environment</span>
+                                <span class="drawer-meta-value small">
+                                    <i class="bi bi-display me-1"></i>@Model.Environment
+                                </span>
+                            </div>
+                        }
+                    }
                     <div class="drawer-meta-item">
                         <span class="drawer-meta-label">Assignee</span>
                         <span class="drawer-meta-value">

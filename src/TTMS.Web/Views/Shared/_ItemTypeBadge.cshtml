@@ -1,0 +1,13 @@
+@using TTMS.Web.Models.Enums
+@model WorkItemType
+@{
+    var (label, badgeClass, icon) = Model switch
+    {
+        WorkItemType.Task => ("Task", "bg-primary", "bi-check2-square"),
+        WorkItemType.Bug => ("Bug", "bg-danger", "bi-bug"),
+        _ => (Model.ToString(), "bg-secondary", "bi-circle")
+    };
+}
+<span class="badge @badgeClass fw-semibold" style="font-size: 0.72rem;">
+    <i class="bi @icon me-1"></i>@label
+</span>

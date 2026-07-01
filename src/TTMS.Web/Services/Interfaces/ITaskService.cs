@@ -25,7 +25,7 @@ public interface ITaskService
     Task<TaskDetailViewModel?> GetDetailAsync(int taskId, string userId, CancellationToken ct = default);
 
     /// <summary>Builds an empty <see cref="TaskEditViewModel"/> for a given project, with dropdowns populated.</summary>
-    Task<TaskEditViewModel?> BuildCreateModelAsync(int projectId, string userId, CancellationToken ct = default);
+    Task<TaskEditViewModel?> BuildCreateModelAsync(int projectId, string userId, WorkItemType itemType = WorkItemType.Task, CancellationToken ct = default);
 
     /// <summary>Creates a new task. Records a Created history row.</summary>
     Task<TaskMutationResult> CreateAsync(TaskEditViewModel model, string userId, CancellationToken ct = default);

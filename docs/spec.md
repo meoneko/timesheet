@@ -91,7 +91,7 @@ Alternative:
 
 Permissions:
 
-* Manage users
+* Manage users (grant/revoke Admin role at `/Admin/Users`)
 * Manage projects
 * Assign project members
 * View all projects
@@ -113,6 +113,18 @@ Permissions:
 * Upload attachments
 * View reports
 * Export reports
+
+---
+
+## User Management (Admin only)
+
+Admins can manage other users at `GET /Admin/Users`:
+
+* List all registered users (Email, Full Name, Joined date, Admin/User role badge)
+* Grant Admin role to any user via "Make Admin" button
+* Revoke Admin role from any user via "Remove Admin" button
+* Self-demotion is blocked (cannot remove own Admin role)
+* Nav link under Admin section in sidebar
 
 ---
 
@@ -651,36 +663,61 @@ Search against:
 
 # 14. Dashboard
 
-## User Dashboard
+Three read-only dashboards with server-side aggregation, no N+1 queries.
 
-Cards:
+## 14.1 User Dashboard (`/Dashboard/User`)
 
+KPI cards:
 * Today's Hours
 * Weekly Hours
 * Monthly Hours
 * Open Tasks
 * Completed Tasks
 
-Tables:
+Plus:
+* Quick actions bar (New Task, Log Time)
+* Recent Tasks table (last 10)
+* Recent Time Entries table (last 10)
 
-* Recent Tasks
-* Recent Time Entries
+## 14.2 Project Dashboard (`/Dashboard/Project/{id}`)
+
+KPI cards:
+* Total Tasks / Open Tasks / Pending Tasks / Blocked Tasks
+* Total Hours logged (all-time)
+* Estimate vs Actual with progress bar (green/yellow/red thresholds)
+
+Plus:
+* Status breakdown bars
+* Member load / time per member table
+* Recent activity stream (last 20 history rows)
+
+## 14.3 Admin Dashboard (`/Dashboard/Admin`)
+
+Admin-only. KPI cards:
+* Total Projects / Total Users / Total Tasks / Total Hours (month) / Active Projects
+
+Plus:
+* Recent activity stream (20 rows, all projects)
+* Top Users this month (by hours logged)
+* Paged Users table
 
 ---
 
-## Project Dashboard
+# 15. Task Board (Kanban)
 
-Cards:
+A lightweight Kanban-style board at `GET /Projects/{projectId}/Tasks?view=board`.
 
-* Total Tasks
-* Open Tasks
-* Pending Tasks
-* Blocked Tasks
-* Total Hours
+Features:
+* Tasks grouped by status columns (Todo / InProgress / Pending / Blocked / Done / Cancelled)
+* Drag-and-drop status changes via AJAX (`POST ChangeStatusAjax`)
+* Concurrency check via row version ticks
+* Blocked reason required when moving to Blocked status
+* Filters respected (Assignee, Priority, Status, Date Range, Text)
+* Truncated at 200 cards with notice
 
 ---
 
-# 15. Activity Feed
+# 16. Activity Feed
 
 ## Purpose
 
@@ -706,7 +743,7 @@ error-log.zip
 
 ---
 
-# 16. Reports
+# 17. Reports
 
 ## My Timesheet
 
@@ -752,7 +789,7 @@ Columns:
 
 ---
 
-# 17. Excel Export
+# 18. Excel Export
 
 ## Supported Exports
 
@@ -774,7 +811,7 @@ Columns:
 
 ---
 
-# 18. Database Tables
+# 19. Database Tables
 
 ## Identity
 
@@ -800,7 +837,7 @@ Histories
 
 ---
 
-# 19. Non Functional Requirements
+# 20. Non Functional Requirements
 
 ## Performance
 
@@ -832,14 +869,13 @@ Uploads:
 
 ---
 
-# 20. Explicitly Out Of Scope
+# 21. Explicitly Out Of Scope
 
 The MVP must NOT include:
 
 * Sprint
 * Epic
 * Story Points
-* Kanban Board
 * Calendar View
 * Timer Tracking
 * Approval Workflow
@@ -858,7 +894,7 @@ The MVP must NOT include:
 
 ---
 
-# 21. MVP Deliverables
+# 22. MVP Deliverables
 
 Authentication
 

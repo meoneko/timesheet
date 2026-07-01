@@ -74,6 +74,26 @@
         });
     }
 
+    // ===========================================================================
+    // Form loading states: prevent double-submit and show spinner on submit
+    // buttons that carry the data-loading attribute.
+    // ===========================================================================
+    (function () {
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('form[data-loading]').forEach(function (form) {
+                form.addEventListener('submit', function () {
+                    var btn = form.querySelector('button[type="submit"]');
+                    if (btn && !btn.disabled) {
+                        btn.disabled = true;
+                        var original = btn.innerHTML;
+                        btn.setAttribute('data-original-html', original);
+                        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>' + (btn.getAttribute('data-loading-text') || 'Saving...');
+                    }
+                });
+            });
+        });
+    })();
+
     // Find the currently active project in the sidebar and push it to recent.
     function trackCurrent() {
         var active = document.querySelector('.ttms-side-projects .nav-item .nav-link.active');

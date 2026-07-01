@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Moq;
 using TTMS.Web.Controllers;
 using TTMS.Web.Models.ViewModels;
@@ -14,6 +15,7 @@ public class TasksControllerTests
     private readonly Mock<ITaskService> _mockTasks = new();
     private readonly Mock<TTMS.Web.Services.IAuthorizationService> _mockAuthz = new();
     private readonly Mock<IAttachmentService> _mockAttachments = new();
+    private readonly Mock<ILogger<TasksController>> _mockLogger = new();
     private readonly TasksController _controller;
 
     public TasksControllerTests()
@@ -23,7 +25,7 @@ public class TasksControllerTests
             new Claim(ClaimTypes.NameIdentifier, "test-user-1")
         }, "TestAuth"));
 
-        _controller = new TasksController(_mockTasks.Object, _mockAuthz.Object, _mockAttachments.Object)
+        _controller = new TasksController(_mockTasks.Object, _mockAuthz.Object, _mockAttachments.Object, _mockLogger.Object)
         {
             ControllerContext = new ControllerContext
             {

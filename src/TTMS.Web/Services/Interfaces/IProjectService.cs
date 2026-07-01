@@ -64,22 +64,8 @@ public interface IProjectService
     /// recover their own work). Step 11 (Recycle Bin) is what surfaces this in the UI.</summary>
     Task<ServiceResult> RestoreAsync(int projectId, string userId, CancellationToken ct = default);
 
-    // ---- Project membership management (Owner-only) ----
-
-    /// <summary>Lists members with their display info, sorted by joined-at then email.</summary>
-    Task<ProjectMembersViewModel?> GetMembersAsync(int projectId, CancellationToken ct = default);
-
-    /// <summary>Lists users that are NOT yet members of this project (for the "Add member" dropdown).</summary>
-    Task<List<UserLookupItem>> GetAvailableUsersAsync(int projectId, CancellationToken ct = default);
-
-    /// <summary>Adds a user as a project member (Owner-only).</summary>
-    Task<ServiceResult> AddMemberAsync(int projectId, AddMemberViewModel model, string actorId, CancellationToken ct = default);
-
-    /// <summary>Changes an existing member's role (Owner-only).</summary>
-    Task<ServiceResult> ChangeMemberRoleAsync(int projectId, string userId, ProjectMemberRole newRole, string actorId, CancellationToken ct = default);
-
-    /// <summary>Removes a member (Owner-only). Refuses to remove the last Owner.</summary>
-    Task<ServiceResult> RemoveMemberAsync(int projectId, string userId, string actorId, CancellationToken ct = default);
+    // NOTE: Project membership management (GetMembers, GetAvailableUsers, AddMember,
+    //       ChangeMemberRole, RemoveMember) has moved to IProjectMemberService.
 }
 
 /// <summary>Lightweight result returned by create/update/delete operations.</summary>

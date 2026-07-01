@@ -1,6 +1,6 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using TTMS.Web.Models.Enums;
 using TTMS.Web.Models.ViewModels;
 using TTMS.Web.Services;
@@ -15,7 +15,7 @@ namespace TTMS.Web.Controllers;
 /// </summary>
 [Authorize]
 [Route("Projects/{projectId:int}/Tasks")]
-public class TasksController : Controller
+public class TasksController : BaseController
 {
     private readonly ITaskService _tasks;
     private readonly TTMS.Web.Services.IAuthorizationService _authz;
@@ -24,15 +24,13 @@ public class TasksController : Controller
     public TasksController(
         ITaskService tasks,
         TTMS.Web.Services.IAuthorizationService authz,
-        IAttachmentService attachments)
+        IAttachmentService attachments,
+        ILogger<TasksController> logger) : base(logger)
     {
         _tasks = tasks;
         _authz = authz;
         _attachments = attachments;
     }
-
-    private string CurrentUserId()
-        => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
 
     // ===========================================================================
     // Index (list of tasks for a project, with filters)
@@ -82,12 +80,12 @@ public class TasksController : Controller
     // ===========================================================================
 
     [HttpGet("Create")]
-    public async Task<IActionResult> Create(int projectId, [FromQuery] TaskItemStatus? status, CancellationToken ct)
+    public async Task<IActionResult> Create(int projectId, [FromQuery] TaskItemStatus? status, [FromQuery] WorkItemType? itemType, CancellationToken ct)
     {
         if (!await _authz.CanCreateTaskAsync(CurrentUserId(), projectId))
             return Forbid();
 
-        var model = await _tasks.BuildCreateModelAsync(projectId, CurrentUserId(), ct);
+        var model = await _tasks.BuildCreateModelAsync(projectId, CurrentUserId(), itemType ?? WorkItemType.Task, ct);
         if (model is null) return NotFound();
 
         if (status.HasValue)
@@ -95,7 +93,7 @@ public class TasksController : Controller
             model.Status = status.Value;
         }
 
-        ViewData["Title"] = "New task";
+        ViewData["Title"] = model.ItemType == WorkItemType.Bug ? "New bug" : "New task";
         return View(model);
     }
 
@@ -310,11 +308,12 @@ public class TasksController : Controller
 
     private async Task PopulateEditModelDropdownsAsync(Models.ViewModels.TaskEditViewModel model, int projectId, CancellationToken ct)
     {
-        var fresh = await _tasks.BuildCreateModelAsync(projectId, CurrentUserId(), ct);
+        var fresh = await _tasks.BuildCreateModelAsync(projectId, CurrentUserId(), model.ItemType, ct);
         if (fresh is not null)
         {
             model.StatusOptions = fresh.StatusOptions;
             model.PriorityOptions = fresh.PriorityOptions;
+            model.SeverityOptions = fresh.SeverityOptions;
             model.AssignableUsers = fresh.AssignableUsers;
         }
     }

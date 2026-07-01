@@ -38,6 +38,22 @@
 
     <!-- Toggle Pills Row -->
     <div class="row g-3 mt-1 pt-2 border-top">
+        <!-- ItemType Filter Pills -->
+        <div class="col-md-12 mb-2">
+            <div class="d-flex align-items-center gap-2">
+                <span class="small text-muted fw-bold text-uppercase" style="font-size: 0.75rem; min-width: 60px;">Type:</span>
+                <div class="filter-pill-group">
+                    <a href="@Url.Action("Index", new { projectId = Model.ProjectId })" class="filter-pill @(Model.ItemType == null ? "active" : "")">All</a>
+                    <a href="@Url.Action("Index", new { projectId = Model.ProjectId, ItemType = WorkItemType.Task })" class="filter-pill @(Model.ItemType == WorkItemType.Task ? "active" : "")">
+                        <i class="bi bi-check2-square"></i> Task
+                    </a>
+                    <a href="@Url.Action("Index", new { projectId = Model.ProjectId, ItemType = WorkItemType.Bug })" class="filter-pill @(Model.ItemType == WorkItemType.Bug ? "active bug" : "")">
+                        <i class="bi bi-bug"></i> Bug
+                    </a>
+                </div>
+            </div>
+        </div>
+
         <!-- Status Filter Pills -->
         <div class="col-md-6">
             <div class="d-flex align-items-center gap-2">

@@ -118,6 +118,7 @@ public class FileStorageService : IFileStorageService
     {
         AttachmentEntityType.Task => "tasks",
         AttachmentEntityType.TimeEntry => "timeentries",
+        AttachmentEntityType.Comment => "comments",
         _ => throw new ArgumentOutOfRangeException(nameof(t), t, "Unknown entity type."),
     };
 

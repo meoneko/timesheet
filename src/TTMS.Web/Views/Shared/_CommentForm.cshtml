@@ -1,0 +1,15 @@
+@model TTMS.Web.Models.ViewModels.CommentCreateViewModel
+@{
+    var returnUrl = (string)(ViewData["ReturnUrl"] ?? Context.Request.Path + Context.Request.QueryString);
+}
+
+<form asp-controller="Comments" asp-action="Create" method="post" class="comment-form mb-4">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="EntityType" value="@Model.EntityType" />
+    <input type="hidden" name="EntityId" value="@Model.EntityId" />
+    <input type="hidden" name="returnUrl" value="@returnUrl" />
+    <textarea name="ContentHtml" data-tinymce="true" class="form-control" rows="4" placeholder="Write a comment..."></textarea>
+    <div class="mt-2 text-end">
+        <button type="submit" class="btn btn-sm btn-primary">Post comment</button>
+    </div>
+</form>

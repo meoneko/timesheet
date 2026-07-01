@@ -132,6 +132,9 @@
         <button class="nav-link" id="members-tab" data-bs-toggle="tab" data-bs-target="#members" type="button" role="tab" aria-selected="false" aria-controls="members">Members (@Model.Members.Count)</button>
     </li>
     <li class="nav-item" role="presentation">
+        <button class="nav-link" id="comments-tab" data-bs-toggle="tab" data-bs-target="#comments" type="button" role="tab" aria-selected="false" aria-controls="comments">Comments (@Model.CommentCount)</button>
+    </li>
+    <li class="nav-item" role="presentation">
         <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab" aria-selected="false" aria-controls="history">History</button>
     </li>
 </ul>
@@ -512,7 +515,28 @@
         }
     </div>
 
-    <!-- Tab 3: History -->
+    <!-- Tab 3: Comments -->
+    <div class="tab-pane fade" id="comments" role="tabpanel" aria-labelledby="comments-tab">
+        @if (Model.ViewerCanComment)
+        {
+            <partial name="_CommentForm" model="@(new CommentCreateViewModel { EntityType = CommentEntityType.Project, EntityId = Model.Id })" />
+        }
+        @{
+            ViewData["EntityType"] = CommentEntityType.Project;
+            ViewData["EntityId"] = Model.Id;
+            ViewData["CurrentPage"] = 1;
+        }
+        <partial name="_CommentList" model="Model.Comments" />
+        @if (Model.CommentCount > Model.Comments.Count)
+        {
+            <div class="text-center mt-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary load-more-comments"
+                        data-entity-type="@CommentEntityType.Project" data-entity-id="@Model.Id" data-next-page="2">Load more</button>
+            </div>
+        }
+    </div>
+
+    <!-- Tab 4: History -->
     <div class="tab-pane fade" id="history" role="tabpanel" aria-labelledby="history-tab">
         <!-- History Filters -->
         <div class="row g-2 mb-3 align-items-center">
@@ -574,4 +598,5 @@
 
 @section Scripts {
     <script src="~/js/project-detail.js" asp-append-version="true"></script>
+    <partial name="_TinyMcePartial" />
 }

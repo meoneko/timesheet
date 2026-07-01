@@ -1,6 +1,7 @@
 ﻿@model TaskEditViewModel
 @using TTMS.Web.Models.Enums
 @{
+    var isBug = Model.ItemType == WorkItemType.Bug;
     ViewData["Title"] = $"Edit {Model.Title}";
     var projectId = Model.ProjectId;
     var assignees = Model.AssignableUsers ?? new List<UserLookupItem>();
@@ -16,7 +17,7 @@
     </ol>
 </nav>
 
-<h1 class="h3 mb-3">Edit task</h1>
+<h1 class="h3 mb-3">Edit @(isBug ? "bug" : "task")</h1>
 
 <div class="row">
     <div class="col-lg-9">
@@ -25,6 +26,7 @@
             <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
             <input type="hidden" asp-for="ProjectId" />
             <input type="hidden" asp-for="Id" />
+            <input type="hidden" asp-for="ItemType" />
 
             <div class="mb-3">
                 <label asp-for="Title" class="form-label"></label>
@@ -73,6 +75,50 @@
                 <div class="form-text">Rich-text formatting is available.</div>
                 <span asp-validation-for="DescriptionHtml" class="text-danger small"></span>
             </div>
+
+            @if (isBug)
+            {
+                <h2 class="h5 mt-4 mb-3 border-bottom pb-2">Bug details</h2>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="Severity" class="form-label"></label>
+                        <select asp-for="Severity" asp-items="Model.SeverityOptions" class="form-select">
+                            <option value="">-- select --</option>
+                        </select>
+                        <span asp-validation-for="Severity" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="Environment" class="form-label"></label>
+                        <input asp-for="Environment" class="form-control" placeholder="e.g. Chrome 120, Windows 11" />
+                        <span asp-validation-for="Environment" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="StepsToReproduceHtml" class="form-label">Steps to reproduce</label>
+                    <textarea asp-for="StepsToReproduceHtml" data-tinymce="true" class="form-control" rows="6"></textarea>
+                    <span asp-validation-for="StepsToReproduceHtml" class="text-danger small"></span>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="ExpectedBehaviorHtml" class="form-label">Expected behavior</label>
+                        <textarea asp-for="ExpectedBehaviorHtml" data-tinymce="true" class="form-control" rows="4"></textarea>
+                        <span asp-validation-for="ExpectedBehaviorHtml" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="ActualBehaviorHtml" class="form-label">Actual behavior</label>
+                        <textarea asp-for="ActualBehaviorHtml" data-tinymce="true" class="form-control" rows="4"></textarea>
+                        <span asp-validation-for="ActualBehaviorHtml" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="RelatedWorkItemId" class="form-label">Related work item (optional)</label>
+                    <input asp-for="RelatedWorkItemId" class="form-control" type="number" min="0" placeholder="Task ID where the bug was discovered" />
+                    <span asp-validation-for="RelatedWorkItemId" class="text-danger small"></span>
+                </div>
+            }
 
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary">Save changes</button>

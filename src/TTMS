@@ -1,0 +1,141 @@
+@model TaskEditViewModel
+@using TTMS.Web.Models.Enums
+@{
+    ViewData["Title"] = Model.ItemType == WorkItemType.Bug ? "New bug" : "New task";
+    var projectId = Model.ProjectId;
+    var assignees = Model.AssignableUsers ?? new List<UserLookupItem>();
+    var isBug = Model.ItemType == WorkItemType.Bug;
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Index">Projects</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Projects" asp-action="Details" asp-route-id="@projectId">@Model.ProjectCode</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Tasks" asp-action="Index" asp-route-projectId="@projectId">Tasks</a></li>
+        <li class="breadcrumb-item active" aria-current="page">New</li>
+    </ol>
+</nav>
+
+<h1 class="h3 mb-3">@(isBug ? "New bug" : "New task")</h1>
+
+<div class="row">
+    <div class="col-lg-9">
+        <form asp-action="Create" method="post">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+            <!-- ItemType Toggle (only on create, can't change type after creation) -->
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Item Type</label>
+                <div class="item-type-toggle-group">
+                    <a href="@Url.Action("Create", new { projectId, itemType = WorkItemType.Task })"
+                       class="item-type-toggle-btn @(isBug ? "" : "active")">
+                        <i class="bi bi-check2-square"></i> Task
+                    </a>
+                    <a href="@Url.Action("Create", new { projectId, itemType = WorkItemType.Bug })"
+                       class="item-type-toggle-btn @(isBug ? "active bug" : "")">
+                        <i class="bi bi-bug"></i> Bug
+                    </a>
+                </div>
+                <input type="hidden" asp-for="ItemType" />
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Title" class="form-label">@(isBug ? "Bug Title" : "Title")</label>
+                <input asp-for="Title" class="form-control" autofocus placeholder="@(isBug ? "Briefly describe the bug..." : "Briefly describe the task...")" />
+                <span asp-validation-for="Title" class="text-danger small"></span>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label asp-for="Status" class="form-label"></label>
+                    <select asp-for="Status" asp-items="Model.StatusOptions" class="form-select"></select>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label asp-for="Priority" class="form-label"></label>
+                    <select asp-for="Priority" asp-items="Model.PriorityOptions" class="form-select"></select>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label asp-for="AssigneeId" class="form-label">Assignee</label>
+                    <select asp-for="AssigneeId" class="form-select">
+                        <option value="">-- select --</option>
+                        @foreach (var u in assignees)
+                        {
+                            <option value="@u.Id">@u.Display</option>
+                        }
+                    </select>
+                    <span asp-validation-for="AssigneeId" class="text-danger small"></span>
+                </div>
+            </div>
+
+            @if (isBug)
+            {
+                <!-- Bug-specific fields -->
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="Severity" class="form-label">Severity</label>
+                        <select asp-for="Severity" asp-items="Model.SeverityOptions" class="form-select">
+                            <option value="">-- select --</option>
+                        </select>
+                        <span asp-validation-for="Severity" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="Environment" class="form-label">Environment</label>
+                        <input asp-for="Environment" class="form-control" placeholder="e.g. Chrome 120, Windows 11, Production" />
+                        <div class="form-text">OS, browser, version, or environment where the bug occurs.</div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="StepsToReproduceHtml" class="form-label">Steps to Reproduce</label>
+                    <textarea asp-for="StepsToReproduceHtml" data-tinymce="true" class="form-control" rows="6"></textarea>
+                    <div class="form-text">Numbered steps to reproduce the bug.</div>
+                    <span asp-validation-for="StepsToReproduceHtml" class="text-danger small"></span>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="ExpectedBehaviorHtml" class="form-label">Expected Behavior</label>
+                        <textarea asp-for="ExpectedBehaviorHtml" data-tinymce="true" class="form-control" rows="4"></textarea>
+                        <div class="form-text">What should happen?</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="ActualBehaviorHtml" class="form-label">Actual Behavior</label>
+                        <textarea asp-for="ActualBehaviorHtml" data-tinymce="true" class="form-control" rows="4"></textarea>
+                        <div class="form-text">What actually happens?</div>
+                    </div>
+                </div>
+            }
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label asp-for="EstimatedHours" class="form-label">Estimated hours</label>
+                    <input asp-for="EstimatedHours" class="form-control" type="number" min="0" step="0.25" />
+                    <span asp-validation-for="EstimatedHours" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label asp-for="DueDate" class="form-label"></label>
+                    <input asp-for="DueDate" class="form-control" type="date" />
+                    <span asp-validation-for="DueDate" class="text-danger small"></span>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="DescriptionHtml" class="form-label">@(isBug ? "Additional Context" : "Description")</label>
+                <textarea asp-for="DescriptionHtml" data-tinymce="true" class="form-control" rows="@(isBug ? 4 : 10)"></textarea>
+                <div class="form-text">Rich-text formatting is available.</div>
+                <span asp-validation-for="DescriptionHtml" class="text-danger small"></span>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">@(isBug ? "Create bug" : "Create task")</button>
+                <a asp-action="Index" asp-route-projectId="@projectId" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <partial name="_TinyMcePartial" />
+}

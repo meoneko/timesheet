@@ -25,6 +25,10 @@ public interface IHistoryService
     void LogAttachment(int attachmentId, HistoryEvent evt, string changedById,
                        string? oldValue = null, string? newValue = null);
 
+    /// <summary>Convenience overload for comments.</summary>
+    void LogComment(int commentId, HistoryEvent evt, string changedById,
+                    string? oldValue = null, string? newValue = null);
+
     /// <summary>Read-only query of history rows for a given entity, newest first.</summary>
     IQueryable<History> GetHistory(string entity, int entityId);
 }

@@ -85,6 +85,7 @@ public class AttachmentService : IAttachmentService
         {
             AttachmentEntityType.Task => await _db.TaskItems.AnyAsync(t => t.Id == entityId && !t.IsDeleted, ct),
             AttachmentEntityType.TimeEntry => await _db.TimeEntries.AnyAsync(e => e.Id == entityId && !e.IsDeleted, ct),
+            AttachmentEntityType.Comment => await _db.Comments.AnyAsync(c => c.Id == entityId && !c.IsDeleted, ct),
             _ => false,
         };
         if (!parentActive)
@@ -214,6 +215,7 @@ public class AttachmentService : IAttachmentService
         {
             AttachmentEntityType.Task => await _authz.CanEditTaskAsync(userId, entityId),
             AttachmentEntityType.TimeEntry => await CanUploadToTimeEntryAsync(userId, entityId, ct),
+            AttachmentEntityType.Comment => await _authz.CanEditCommentAsync(userId, entityId),
             _ => false,
         };
     }
@@ -241,8 +243,27 @@ public class AttachmentService : IAttachmentService
                 .Where(e => e.Id == a.EntityId)
                 .Select(e => e.Task!.ProjectId)
                 .FirstOrDefaultAsync(ct),
+            AttachmentEntityType.Comment => await ResolveCommentProjectIdAsync(a.EntityId, ct),
             _ => 0,
         };
+
+    private async Task<int> ResolveCommentProjectIdAsync(int commentId, CancellationToken ct)
+    {
+        var comment = await _db.Comments.AsNoTracking()
+            .Where(c => c.Id == commentId)
+            .Select(c => new { c.EntityType, c.EntityId })
+            .FirstOrDefaultAsync(ct);
+        if (comment is null) return 0;
+        return comment.EntityType switch
+        {
+            CommentEntityType.Task => await _db.TaskItems.AsNoTracking()
+                .Where(t => t.Id == comment.EntityId)
+                .Select(t => t.ProjectId)
+                .FirstOrDefaultAsync(ct),
+            CommentEntityType.Project => comment.EntityId,
+            _ => 0,
+        };
+    }
     private static string FormatSize(long bytes)
     {
         if (bytes < 1024) return $"{bytes} B";

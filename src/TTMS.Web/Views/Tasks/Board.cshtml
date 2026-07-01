@@ -52,9 +52,14 @@
             </a>
         </div>
     </div>
-    <a asp-action="Create" asp-route-projectId="@projectId" asp-route-view="board" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1">
-        <i class="bi bi-plus-lg"></i> New Task
-    </a>
+    <div class="d-flex gap-2">
+        <a asp-action="Create" asp-route-projectId="@projectId" asp-route-view="board" asp-route-itemType="@WorkItemType.Bug" class="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1">
+            <i class="bi bi-bug"></i> New Bug
+        </a>
+        <a asp-action="Create" asp-route-projectId="@projectId" asp-route-view="board" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1">
+            <i class="bi bi-plus-lg"></i> New Task
+        </a>
+    </div>
 </div>
 
 @if (filter is not null)
@@ -88,6 +93,10 @@
                          id="card-@card.Id">
                         
                         <div class="kanban-card-title">
+                            @if (card.ItemType == WorkItemType.Bug)
+                            {
+                                <i class="bi bi-bug-fill text-danger me-1" title="Bug"></i>
+                            }
                             <a asp-action="Details" asp-route-projectId="@Model.ProjectId" asp-route-id="@card.Id">@card.Title</a>
                         </div>
 
@@ -102,6 +111,10 @@
                             <div class="kanban-card-key">@card.Key</div>
                             <div class="kanban-card-badges">
                                 <partial name="_TaskPriorityBadge" model="card.Priority" />
+                                @if (card.ItemType == WorkItemType.Bug && card.Severity.HasValue)
+                                {
+                                    <partial name="_BugSeverityBadge" model="card.Severity" />
+                                }
                                 @if (card.DueDate.HasValue)
                                 {
                                     var isOverdue = card.DueDate.Value < DateTime.UtcNow.Date && card.Status != TaskItemStatus.Done && card.Status != TaskItemStatus.Cancelled;
@@ -129,6 +142,10 @@
                             
                             <span class="small text-muted kanban-card-hours" style="font-size: 0.75rem;">
                                 @card.ActualHours.ToString("0.##")h / @card.EstimatedHours.ToString("0.##")h
+                                @if (card.CommentCount > 0)
+                                {
+                                    <span class="ms-2" title="@card.CommentCount comment(s)"><i class="bi bi-chat-dots"></i> @card.CommentCount</span>
+                                }
                             </span>
                         </div>
 

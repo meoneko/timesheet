@@ -13,7 +13,7 @@ namespace TTMS.Web.Controllers;
 /// </summary>
 [Authorize]
 [Route("Attachments")]
-public class AttachmentsController : Controller
+public class AttachmentsController : BaseController
 {
     private readonly IAttachmentService _attachments;
     private readonly TTMS.Web.Services.IAuthorizationService _authz;
@@ -22,15 +22,12 @@ public class AttachmentsController : Controller
     public AttachmentsController(
         IAttachmentService attachments,
         TTMS.Web.Services.IAuthorizationService authz,
-        ILogger<AttachmentsController> logger)
+        ILogger<AttachmentsController> logger) : base(logger)
     {
         _attachments = attachments;
         _authz = authz;
         _logger = logger;
     }
-
-    private string CurrentUserId()
-        => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
 
     // ===========================================================================
     // Download

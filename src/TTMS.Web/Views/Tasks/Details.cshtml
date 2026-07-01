@@ -23,7 +23,14 @@
     <div class="col-lg-8 task-main-col">
         <!-- Title and Toolbar Actions -->
         <div class="ttms-task-title-area">
-            <h1 class="ttms-task-title">@Model.Title</h1>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <partial name="_ItemTypeBadge" model="Model.ItemType" />
+                @if (Model.ItemType == WorkItemType.Bug && Model.Severity.HasValue)
+                {
+                    <partial name="_BugSeverityBadge" model="Model.Severity" />
+                }
+            </div>
+            <h1 class="ttms-task-title mt-2">@Model.Title</h1>
         </div>
 
         <div class="ttms-task-actions-toolbar">
@@ -54,7 +61,7 @@
         </div>
 
         <!-- Description Box -->
-        <div class="ttms-section-label">Description</div>
+        <div class="ttms-section-label">@(Model.ItemType == WorkItemType.Bug ? "Additional Context" : "Description")</div>
         <div class="task-description-wrapper">
             @if (string.IsNullOrWhiteSpace(Model.DescriptionHtml))
             {
@@ -65,6 +72,51 @@
                 <div class="task-description">@Html.Raw(Model.DescriptionHtml)</div>
             }
         </div>
+
+        @if (Model.ItemType == WorkItemType.Bug)
+        {
+            <!-- Bug-specific sections -->
+            <div class="ttms-section-label mt-4">Steps to Reproduce</div>
+            <div class="task-description-wrapper">
+                @if (string.IsNullOrWhiteSpace(Model.StepsToReproduceHtml))
+                {
+                    <p class="text-muted"><em>No steps provided.</em></p>
+                }
+                else
+                {
+                    <div class="task-description">@Html.Raw(Model.StepsToReproduceHtml)</div>
+                }
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="ttms-section-label">Expected Behavior</div>
+                    <div class="task-description-wrapper">
+                        @if (string.IsNullOrWhiteSpace(Model.ExpectedBehaviorHtml))
+                        {
+                            <p class="text-muted"><em>Not specified.</em></p>
+                        }
+                        else
+                        {
+                            <div class="task-description">@Html.Raw(Model.ExpectedBehaviorHtml)</div>
+                        }
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="ttms-section-label">Actual Behavior</div>
+                    <div class="task-description-wrapper">
+                        @if (string.IsNullOrWhiteSpace(Model.ActualBehaviorHtml))
+                        {
+                            <p class="text-muted"><em>Not specified.</em></p>
+                        }
+                        else
+                        {
+                            <div class="task-description">@Html.Raw(Model.ActualBehaviorHtml)</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
 
         <!-- Activity Section with Counters -->
         <div class="ttms-section-label">Activity</div>
@@ -81,6 +133,11 @@
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="attach-tab" data-bs-toggle="tab" data-bs-target="#attach" type="button" role="tab">
                         Attachments <span class="tab-badge">@Model.Attachments.Count</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="comments-tab" data-bs-toggle="tab" data-bs-target="#comments" type="button" role="tab">
+                        Comments <span class="tab-badge">@Model.CommentCount</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
@@ -224,6 +281,27 @@
                     }
                 </div>
 
+                <!-- Comments Tab -->
+                <div class="tab-pane fade" id="comments" role="tabpanel">
+                    @if (Model.ViewerCanComment)
+                    {
+                        <partial name="_CommentForm" model="@(new CommentCreateViewModel { EntityType = CommentEntityType.Task, EntityId = Model.Id })" />
+                    }
+                    @{
+                        ViewData["EntityType"] = CommentEntityType.Task;
+                        ViewData["EntityId"] = Model.Id;
+                        ViewData["CurrentPage"] = 1;
+                    }
+                    <partial name="_CommentList" model="Model.Comments" />
+                    @if (Model.CommentCount > Model.Comments.Count)
+                    {
+                        <div class="text-center mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary load-more-comments"
+                                    data-entity-type="@CommentEntityType.Task" data-entity-id="@Model.Id" data-next-page="2">Load more</button>
+                        </div>
+                    }
+                </div>
+
                 <!-- History Tab -->
                 <div class="tab-pane fade" id="history" role="tabpanel">
                     @if (!Model.RecentHistory.Any())
@@ -339,6 +417,42 @@
             <div class="ttms-section-label mb-2">Details</div>
             <table class="table task-details-grid">
                 <tbody>
+                    @if (Model.ItemType == WorkItemType.Bug)
+                    {
+                        <tr>
+                            <td class="task-details-label">Severity</td>
+                            <td class="task-details-value">
+                                <partial name="_BugSeverityBadge" model="Model.Severity" />
+                            </td>
+                        </tr>
+                        @if (!string.IsNullOrWhiteSpace(Model.Environment))
+                        {
+                            <tr>
+                                <td class="task-details-label">Environment</td>
+                                <td class="task-details-value">
+                                    <span class="small"><i class="bi bi-display me-1"></i>@Model.Environment</span>
+                                </td>
+                            </tr>
+                        }
+                        @if (Model.RelatedWorkItemId.HasValue)
+                        {
+                            <tr>
+                                <td class="task-details-label">Related Item</td>
+                                <td class="task-details-value">
+                                    @if (!string.IsNullOrEmpty(Model.RelatedWorkItemTitle))
+                                    {
+                                        <a asp-action="Details" asp-route-projectId="@Model.ProjectId" asp-route-id="@Model.RelatedWorkItemId.Value" class="text-decoration-none">
+                                            <i class="bi bi-link-45deg me-1"></i>@Model.RelatedWorkItemTitle
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">#@Model.RelatedWorkItemId</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
                     <tr>
                         <td class="task-details-label">Assignee</td>
                         <td class="task-details-value">
@@ -420,4 +534,5 @@
             document.getElementById('statusChangeForm').submit();
         }
     </script>
+    <partial name="_TinyMcePartial" />
 }

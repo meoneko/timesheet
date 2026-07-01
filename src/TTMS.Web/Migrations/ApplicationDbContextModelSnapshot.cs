@@ -271,6 +271,58 @@ namespace TTMS.Web.Migrations
                     b.ToTable("Attachments", (string)null);
                 });
 
+            modelBuilder.Entity("TTMS.Web.Models.Entities.Comment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AuthorId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContentHtml")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContentText")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("EntityId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("EntityType")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ParentCommentId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("ParentCommentId");
+
+                    b.HasIndex("EntityType", "EntityId");
+
+                    b.ToTable("Comments", (string)null);
+                });
+
             modelBuilder.Entity("TTMS.Web.Models.Entities.History", b =>
                 {
                     b.Property<int>("Id")
@@ -404,12 +456,14 @@ namespace TTMS.Web.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("ActualBehaviorHtml")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("AssigneeId")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("BlockedReason")
-                        .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAt")
@@ -429,8 +483,15 @@ namespace TTMS.Web.Migrations
                     b.Property<DateTime?>("DueDate")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Environment")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
                     b.Property<decimal>("EstimatedHours")
                         .HasColumnType("decimal(9,2)");
+
+                    b.Property<string>("ExpectedBehaviorHtml")
+                        .HasColumnType("TEXT");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
@@ -438,11 +499,26 @@ namespace TTMS.Web.Migrations
                     b.Property<int>("ItemStatus")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("ItemType")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("Priority")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("ProjectId")
                         .HasColumnType("INTEGER");
+
+                    b.Property<int?>("RelatedWorkItemId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("Severity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("StepsToReproduceHtml")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("StepsToReproduceText")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -461,6 +537,10 @@ namespace TTMS.Web.Migrations
                     b.HasIndex("ItemStatus");
 
                     b.HasIndex("ProjectId");
+
+                    b.HasIndex("RelatedWorkItemId");
+
+                    b.HasIndex("ItemType", "IsDeleted");
 
                     b.HasIndex("ProjectId", "IsDeleted", "UpdatedAt");
 
@@ -517,6 +597,8 @@ namespace TTMS.Web.Migrations
                     b.HasIndex("WorkDate");
 
                     b.HasIndex("TaskId", "WorkDate");
+
+                    b.HasIndex("WorkDate", "UserId");
 
                     b.ToTable("TimeEntries", (string)null);
                 });
@@ -583,6 +665,24 @@ namespace TTMS.Web.Migrations
                     b.Navigation("UploadedBy");
                 });
 
+            modelBuilder.Entity("TTMS.Web.Models.Entities.Comment", b =>
+                {
+                    b.HasOne("TTMS.Web.Models.Entities.ApplicationUser", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TTMS.Web.Models.Entities.Comment", "ParentComment")
+                        .WithMany("Replies")
+                        .HasForeignKey("ParentCommentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Author");
+
+                    b.Navigation("ParentComment");
+                });
+
             modelBuilder.Entity("TTMS.Web.Models.Entities.History", b =>
                 {
                     b.HasOne("TTMS.Web.Models.Entities.ApplicationUser", "ChangedBy")
@@ -638,9 +738,16 @@ namespace TTMS.Web.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("TTMS.Web.Models.Entities.TaskItem", "RelatedWorkItem")
+                        .WithMany()
+                        .HasForeignKey("RelatedWorkItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Assignee");
 
                     b.Navigation("Project");
+
+                    b.Navigation("RelatedWorkItem");
                 });
 
             modelBuilder.Entity("TTMS.Web.Models.Entities.TimeEntry", b =>
@@ -660,6 +767,11 @@ namespace TTMS.Web.Migrations
                     b.Navigation("Task");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TTMS.Web.Models.Entities.Comment", b =>
+                {
+                    b.Navigation("Replies");
                 });
 
             modelBuilder.Entity("TTMS.Web.Models.Entities.Project", b =>

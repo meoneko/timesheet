@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using TTMS.Web.Data;
+using TTMS.Web.Middleware;
 using TTMS.Web.Models.Entities;
 using TTMS.Web.Services;
 
@@ -74,14 +75,14 @@ builder.Services.AddScoped<IHistoryService, HistoryService>();
 builder.Services.AddScoped<IAuthorizationService, AuthorizationService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<IProjectMemberService, ProjectMemberService>();
 builder.Services.AddScoped<IReportsService, ReportsService>();
 builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<IAttachmentService, AttachmentService>();
 builder.Services.AddScoped<ITrashService, TrashService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<ITimeEntryService, TimeEntryService>();
-builder.Services.AddScoped<IAttachmentService, AttachmentService>();
-builder.Services.AddScoped<ITrashService, TrashService>();
+builder.Services.AddScoped<ICommentService, CommentService>();
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
@@ -107,6 +108,11 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Validate that authenticated users still exist in the database.
+// Signs out users with stale cookies (e.g., after DB recreation) to prevent
+// SQLite FK constraint failures on write operations.
+app.UseMiddleware<ValidateUserMiddleware>();
+
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
@@ -126,4 +132,3 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
-

@@ -40,6 +40,7 @@ public class AttachmentServiceTests
         public TaskService Tasks;
         public AttachmentService Attachments;
         public ProjectService Projects;
+        public ProjectMemberService Members;
         public Mock<IFileStorageService> Storage;
 
         public Harness(AuthorizationServiceHarness ah)
@@ -50,6 +51,7 @@ public class AttachmentServiceTests
             var time = new TimeConversionService();
             Tasks = new TaskService(ah.Db, ah.Auth, history, time, sanitizer);
             Projects = new ProjectService(ah.Db, history, ah.Auth, sanitizer, ah.UserManager, null!);
+            Members = new ProjectMemberService(ah.Db, history, ah.Auth, ah.UserManager);
             Storage = new Mock<IFileStorageService>();
             Storage.Setup(s => s.SaveAsync(It.IsAny<IFormFile>(), It.IsAny<AttachmentEntityType>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync((IFormFile f, AttachmentEntityType e, int id, CancellationToken _) => $"{(e == AttachmentEntityType.Task ? "tasks" : "timeentries")}/{id}/{f.FileName}");

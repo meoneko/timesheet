@@ -4,6 +4,7 @@ using TTMS.Web.Data;
 using TTMS.Web.Models.Entities;
 using TTMS.Web.Models.Enums;
 using TTMS.Web.Models.ViewModels;
+using TTMS.Web.Services.Helpers;
 
 namespace TTMS.Web.Services;
 
@@ -16,6 +17,7 @@ public class ProjectService : IProjectService
     private readonly IHtmlSanitizationService _sanitizer;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IServiceProvider _serviceProvider;
+    private readonly ICommentService _comments;
 
     public ProjectService(
         ApplicationDbContext db,
@@ -23,7 +25,8 @@ public class ProjectService : IProjectService
         IAuthorizationService authz,
         IHtmlSanitizationService sanitizer,
         UserManager<ApplicationUser> userManager,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        ICommentService comments)
     {
         _db = db;
         _history = history;
@@ -31,6 +34,7 @@ public class ProjectService : IProjectService
         _sanitizer = sanitizer;
         _userManager = userManager;
         _serviceProvider = serviceProvider;
+        _comments = comments;
     }
 
     // ===========================================================================
@@ -70,6 +74,7 @@ public class ProjectService : IProjectService
                 MemberCount = _db.ProjectMembers.Count(pm => pm.ProjectId == p.Id),
                 OpenTaskCount = _db.TaskItems.Count(t => t.ProjectId == p.Id && !t.IsDeleted
                     && t.ItemStatus != TaskItemStatus.Done && t.ItemStatus != TaskItemStatus.Cancelled),
+                CommentCount = _db.Comments.Count(c => c.EntityType == CommentEntityType.Project && c.EntityId == p.Id && !c.IsDeleted),
             })
             .ToListAsync(ct);
 
@@ -82,6 +87,7 @@ public class ProjectService : IProjectService
             CreatedAt = r.CreatedAt,
             MemberCount = r.MemberCount,
             OpenTaskCount = r.OpenTaskCount,
+            CommentCount = r.CommentCount,
             ViewerRole = isAdmin ? ProjectMemberRole.Owner : viewerRoles.GetValueOrDefault(r.Id),
         }).ToList();
     }
@@ -223,7 +229,10 @@ public class ProjectService : IProjectService
         var tStats = await tasksTask;
         var tLogged = await timeLoggedTask;
 
-        var recentHistory = await BuildHistoryAsync("Project", projectId, take: 5, ct);
+        var recentHistory = await HistoryQueryBuilder.BuildHistoryAsync(_db, "Project", projectId, take: 5, ct);
+
+        var comments = await _comments.ListAsync(CommentEntityType.Project, projectId, currentUserId, page: 1);
+        var commentCount = await _comments.GetCountAsync(CommentEntityType.Project, projectId);
 
         return new ProjectDetailViewModel
         {
@@ -236,6 +245,9 @@ public class ProjectService : IProjectService
             CreatedByName = projectResult.Value.CreatorName,
             Members = members,
             RecentHistory = recentHistory,
+            Comments = comments,
+            CommentCount = commentCount,
+            ViewerCanComment = await _authz.CanCreateCommentAsync(currentUserId, CommentEntityType.Project, projectId),
             OpenTaskCount = tStats.Open,
             TotalTaskCount = tStats.Total,
             TotalTimeLoggedMinutes = tLogged.Total,
@@ -310,7 +322,7 @@ public class ProjectService : IProjectService
         {
             Id = 0,
             Status = ProjectStatus.Active,
-            StatusOptions = BuildStatusOptions(ProjectStatus.Active),
+            StatusOptions = SelectListFactory.BuildProjectStatusOptions(ProjectStatus.Active),
         };
     }
 
@@ -341,7 +353,7 @@ public class ProjectService : IProjectService
 
         var creator = await _userManager.FindByIdAsync(project.CreatedById);
         // Show the most recent history (Created + Deleted) so the user has context for what they're restoring.
-        var recentHistory = await BuildHistoryAsync("Project", projectId, take: 10, ct);
+        var recentHistory = await HistoryQueryBuilder.BuildHistoryAsync(_db, "Project", projectId, take: 10, ct);
 
         return new ProjectDetailViewModel
         {
@@ -387,7 +399,7 @@ public class ProjectService : IProjectService
             Code = p.Code,
             DescriptionHtml = p.Description,
             Status = p.Status,
-            StatusOptions = BuildStatusOptions(p.Status),
+            StatusOptions = SelectListFactory.BuildProjectStatusOptions(p.Status),
         };
     }
 
@@ -413,6 +425,12 @@ public class ProjectService : IProjectService
         var nameClash = await _db.Projects.AnyAsync(p => p.Name == name && !p.IsDeleted, ct);
         if (nameClash)
             return new ProjectCreateResult { Succeeded = false, Error = $"Name '{name}' is already in use.", ErrorCode = "DuplicateName" };
+
+        // Verify the current user exists — if the DB was recreated but the auth cookie
+        // is still valid, CreatedById would reference a non-existent user and the FK
+        // constraint on Projects.CreatedById → AspNetUsers.Id would fail (SQLite Error 19).
+        if (!await _db.Users.AnyAsync(u => u.Id == userId, ct))
+            return new ProjectCreateResult { Succeeded = false, Error = "Your user account was not found. Please sign out and sign in again.", ErrorCode = "UserNotFound" };
 
         var now = DateTime.UtcNow;
         var project = new Project
@@ -492,7 +510,7 @@ public class ProjectService : IProjectService
             _history.Log("Project", project.Id, HistoryEvent.Updated, userId, oldStatus.ToString(), project.Status.ToString());
         if (oldDescription != project.Description)
             _history.Log("Project", project.Id, HistoryEvent.Updated, userId,
-                Truncate(oldDescription, 250), Truncate(project.Description, 250));
+                TextHelpers.Truncate(oldDescription, 250), TextHelpers.Truncate(project.Description, 250));
 
         await _db.SaveChangesAsync(ct);
         return ServiceResult.Ok();
@@ -559,151 +577,6 @@ public class ProjectService : IProjectService
     }
 
     // ===========================================================================
-    // Members management
-    // ===========================================================================
-
-    public async Task<ProjectMembersViewModel?> GetMembersAsync(int projectId, CancellationToken ct = default)
-    {
-        var project = await _db.Projects.AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == projectId && !p.IsDeleted, ct);
-        if (project is null) return null;
-
-        var members = await _db.ProjectMembers.AsNoTracking()
-            .Where(pm => pm.ProjectId == projectId)
-            .Join(_db.Users, pm => pm.UserId, u => u.Id, (pm, u) => new { pm, u })
-            .OrderBy(x => x.u.Email)
-            .Select(x => new ProjectMemberViewModel
-            {
-                UserId = x.pm.UserId,
-                Email = x.u.Email ?? string.Empty,
-                DisplayName = string.IsNullOrWhiteSpace(x.u.FullName) ? (x.u.Email ?? string.Empty) : x.u.FullName,
-                Role = x.pm.Role,
-                JoinedAt = x.pm.JoinedAt,
-            })
-            .ToListAsync(ct);
-
-        var available = await GetAvailableUsersAsync(projectId, ct);
-
-        return new ProjectMembersViewModel
-        {
-            ProjectId = projectId,
-            ProjectName = project.Name,
-            Members = members,
-            AvailableUsers = available,
-        };
-    }
-
-    public async Task<List<UserLookupItem>> GetAvailableUsersAsync(int projectId, CancellationToken ct = default)
-    {
-        var memberIds = _db.ProjectMembers.Where(pm => pm.ProjectId == projectId).Select(pm => pm.UserId);
-        return await _db.Users.AsNoTracking()
-            .Where(u => !memberIds.Contains(u.Id))
-            .OrderBy(u => u.Email)
-            .Select(u => new UserLookupItem
-            {
-                Id = u.Id,
-                Email = u.Email ?? string.Empty,
-                Display = string.IsNullOrWhiteSpace(u.FullName) ? (u.Email ?? string.Empty) : u.FullName + " (" + u.Email + ")",
-            })
-            .ToListAsync(ct);
-    }
-
-    public async Task<ServiceResult> AddMemberAsync(int projectId, AddMemberViewModel model, string actorId, CancellationToken ct = default)
-    {
-        if (!await _authz.CanManageProjectAsync(actorId, projectId))
-            return ServiceResult.Fail("Only project Owners can add members.", "Forbidden");
-
-        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId && !p.IsDeleted, ct);
-        if (project is null) return ServiceResult.Fail("Project not found.", "NotFound");
-
-        if (string.IsNullOrWhiteSpace(model.UserId))
-            return ServiceResult.Fail("Please choose a user to add.", "Required");
-
-        var userExists = await _db.Users.AnyAsync(u => u.Id == model.UserId, ct);
-        if (!userExists) return ServiceResult.Fail("Selected user does not exist.", "NotFound");
-
-        var already = await _db.ProjectMembers.AnyAsync(pm => pm.ProjectId == projectId && pm.UserId == model.UserId, ct);
-        if (already) return ServiceResult.Fail("That user is already a member of this project.", "Duplicate");
-
-        var member = new ProjectMember
-        {
-            ProjectId = projectId,
-            UserId = model.UserId,
-            Role = model.Role,
-            JoinedAt = DateTime.UtcNow,
-        };
-        _db.ProjectMembers.Add(member);
-
-        var user = await _userManager.FindByIdAsync(model.UserId);
-        var display = user is null ? model.UserId :
-            (string.IsNullOrWhiteSpace(user.FullName) ? (user.Email ?? model.UserId) : user.FullName);
-        _history.Log("Project", projectId, HistoryEvent.Created, actorId,
-            oldValue: null,
-            newValue: $"Added {model.Role}: {display}");
-
-        await _db.SaveChangesAsync(ct);
-        return ServiceResult.Ok();
-    }
-
-    public async Task<ServiceResult> ChangeMemberRoleAsync(int projectId, string userId, ProjectMemberRole newRole, string actorId, CancellationToken ct = default)
-    {
-        if (!await _authz.CanManageProjectAsync(actorId, projectId))
-            return ServiceResult.Fail("Only project Owners can change roles.", "Forbidden");
-
-        var member = await _db.ProjectMembers
-            .FirstOrDefaultAsync(pm => pm.ProjectId == projectId && pm.UserId == userId, ct);
-        if (member is null) return ServiceResult.Fail("Member not found.", "NotFound");
-
-        if (member.Role == newRole) return ServiceResult.Ok(); // no-op
-
-        // Guard: don't accidentally strip Owner status from the last Owner.
-        if (member.Role == ProjectMemberRole.Owner && newRole != ProjectMemberRole.Owner)
-        {
-            var ownerCount = await _db.ProjectMembers.CountAsync(pm => pm.ProjectId == projectId && pm.Role == ProjectMemberRole.Owner, ct);
-            if (ownerCount <= 1)
-                return ServiceResult.Fail("Cannot demote the last Owner of a project.", "LastOwner");
-        }
-
-        var oldRole = member.Role;
-        member.Role = newRole;
-
-        _history.Log("Project", projectId, HistoryEvent.Updated, actorId,
-            oldValue: $"{userId} = {oldRole}",
-            newValue: $"{userId} = {newRole}");
-
-        await _db.SaveChangesAsync(ct);
-        return ServiceResult.Ok();
-    }
-
-    public async Task<ServiceResult> RemoveMemberAsync(int projectId, string userId, string actorId, CancellationToken ct = default)
-    {
-        if (!await _authz.CanManageProjectAsync(actorId, projectId))
-            return ServiceResult.Fail("Only project Owners can remove members.", "Forbidden");
-
-        var member = await _db.ProjectMembers
-            .FirstOrDefaultAsync(pm => pm.ProjectId == projectId && pm.UserId == userId, ct);
-        if (member is null) return ServiceResult.Fail("Member not found.", "NotFound");
-
-        // Guard: never allow the last Owner to be removed.
-        if (member.Role == ProjectMemberRole.Owner)
-        {
-            var ownerCount = await _db.ProjectMembers.CountAsync(pm => pm.ProjectId == projectId && pm.Role == ProjectMemberRole.Owner, ct);
-            if (ownerCount <= 1)
-                return ServiceResult.Fail("Cannot remove the last Owner of a project.", "LastOwner");
-        }
-
-        var oldRole = member.Role;
-        _db.ProjectMembers.Remove(member);
-
-        _history.Log("Project", projectId, HistoryEvent.Deleted, actorId,
-            oldValue: $"{userId} = {oldRole}",
-            newValue: null);
-
-        await _db.SaveChangesAsync(ct);
-        return ServiceResult.Ok();
-    }
-
-    // ===========================================================================
     // Private helpers
     // ===========================================================================
 
@@ -745,37 +618,4 @@ public class ProjectService : IProjectService
         return candidates.Max();
     }
 
-    private async Task<List<HistoryRowViewModel>> BuildHistoryAsync(string entity, int entityId, int take, CancellationToken ct)
-    {
-        var rows = await _db.Histories.AsNoTracking()
-            .Where(h => h.Entity == entity && h.EntityId == entityId)
-            .OrderByDescending(h => h.ChangedAt)
-            .Take(take)
-            .Join(_db.Users, h => h.ChangedById, u => u.Id, (h, u) => new { h, u })
-            .Select(x => new HistoryRowViewModel
-            {
-                Id = x.h.Id,
-                Event = x.h.Event,
-                ChangedByName = string.IsNullOrWhiteSpace(x.u.FullName) ? (x.u.Email ?? "—") : x.u.FullName,
-                ChangedAt = x.h.ChangedAt,
-                OldValue = x.h.OldValue,
-                NewValue = x.h.NewValue,
-            })
-            .ToListAsync(ct);
-        return rows;
-    }
-
-    private static Microsoft.AspNetCore.Mvc.Rendering.SelectList BuildStatusOptions(ProjectStatus selected)
-    {
-        var items = Enum.GetValues<ProjectStatus>()
-            .Select(s => new { Value = (int)s, Display = s.ToString() })
-            .ToList();
-        return new Microsoft.AspNetCore.Mvc.Rendering.SelectList(items, "Value", "Display", (int)selected);
-    }
-
-    private static string? Truncate(string? s, int max)
-    {
-        if (string.IsNullOrEmpty(s)) return s;
-        return s.Length <= max ? s : s[..max];
-    }
 }

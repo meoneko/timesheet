@@ -22,6 +22,7 @@ public class TaskServiceTests
         public TaskService Tasks;
         public TimeEntryService TimeEntries;
         public ProjectService Projects;
+        public ProjectMemberService Members;
         public Harness(AuthorizationServiceHarness ah)
         {
             AuthHarness = ah;
@@ -31,6 +32,7 @@ public class TaskServiceTests
             Tasks = new TaskService(ah.Db, ah.Auth, history, timeConv, sanitizer);
             TimeEntries = new TimeEntryService(ah.Db, history, ah.Auth, sanitizer, timeConv);
             Projects = new ProjectService(ah.Db, history, ah.Auth, sanitizer, ah.UserManager, null!);
+            Members = new ProjectMemberService(ah.Db, history, ah.Auth, ah.UserManager);
         }
         public void Dispose() => AuthHarness.Dispose();
     }

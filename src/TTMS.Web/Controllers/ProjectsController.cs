@@ -1,9 +1,6 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using TTMS.Web.Data;
-using TTMS.Web.Models.Entities;
+using Microsoft.Extensions.Logging;
 using TTMS.Web.Models.ViewModels;
 using TTMS.Web.Services;
 
@@ -15,21 +12,22 @@ namespace TTMS.Web.Controllers;
 /// Detail / Edit / Delete / Members actions are gated by IAuthorizationService (Owner or Admin).
 /// </summary>
 [Authorize]
-public class ProjectsController : Controller
+public class ProjectsController : BaseController
 {
     private readonly IProjectService _projects;
+    private readonly IProjectMemberService _members;
     private readonly TTMS.Web.Services.IAuthorizationService _authz;
-    
+
     public ProjectsController(
         IProjectService projects,
-        TTMS.Web.Services.IAuthorizationService authz)
+        IProjectMemberService members,
+        TTMS.Web.Services.IAuthorizationService authz,
+        ILogger<ProjectsController> logger) : base(logger)
     {
         _projects = projects;
+        _members = members;
         _authz = authz;
     }
-
-    private string CurrentUserId()
-        => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
 
     // ===========================================================================
     // Index / Details
@@ -64,7 +62,7 @@ public class ProjectsController : Controller
 
         ViewData["Title"] = $"{vm.Code} — {vm.Name}";
         ViewData["CanManage"] = await _authz.CanManageProjectAsync(CurrentUserId(), id);
-        ViewData["AvailableUsers"] = await _projects.GetAvailableUsersAsync(id, ct);
+        ViewData["AvailableUsers"] = await _members.GetAvailableUsersAsync(id, ct);
         return View(vm);
     }
 
@@ -239,7 +237,7 @@ public class ProjectsController : Controller
         if (!await _authz.CanViewProjectAsync(CurrentUserId(), id))
             return Forbid();
 
-        var vm = await _projects.GetMembersAsync(id, ct);
+        var vm = await _members.GetMembersAsync(id, ct);
         if (vm is null) return NotFound();
 
         vm.CanManage = await _authz.CanManageProjectAsync(CurrentUserId(), id);
@@ -263,7 +261,7 @@ public class ProjectsController : Controller
         if (!await _authz.CanManageProjectAsync(CurrentUserId(), id))
             return Forbid();
 
-        var result = await _projects.AddMemberAsync(id, model, CurrentUserId(), ct);
+        var result = await _members.AddMemberAsync(id, model, CurrentUserId(), ct);
         if (!result.Succeeded)
         {
             TempData["ErrorMessage"] = result.Error ?? "Could not add member.";
@@ -285,7 +283,7 @@ public class ProjectsController : Controller
         if (!await _authz.CanManageProjectAsync(CurrentUserId(), id))
             return Forbid();
 
-        var result = await _projects.ChangeMemberRoleAsync(id, userId, newRole, CurrentUserId(), ct);
+        var result = await _members.ChangeMemberRoleAsync(id, userId, newRole, CurrentUserId(), ct);
         if (!result.Succeeded)
             TempData["ErrorMessage"] = result.Error ?? "Could not change role.";
         else
@@ -303,7 +301,7 @@ public class ProjectsController : Controller
         if (!await _authz.CanManageProjectAsync(CurrentUserId(), id))
             return Forbid();
 
-        var result = await _projects.RemoveMemberAsync(id, userId, CurrentUserId(), ct);
+        var result = await _members.RemoveMemberAsync(id, userId, CurrentUserId(), ct);
         if (!result.Succeeded)
             TempData["ErrorMessage"] = result.Error ?? "Could not remove member.";
         else

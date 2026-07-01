@@ -21,6 +21,7 @@ public class TimeEntryServiceSearchTests
         public TimeEntryService Entries;
         public TaskService Tasks;
         public ProjectService Projects;
+        public ProjectMemberService Members;
         public Harness(AuthorizationServiceHarness ah)
         {
             AuthHarness = ah;
@@ -30,6 +31,7 @@ public class TimeEntryServiceSearchTests
             Entries = new TimeEntryService(ah.Db, history, ah.Auth, sanitizer, time);
             Tasks = new TaskService(ah.Db, ah.Auth, history, time, sanitizer);
             Projects = new ProjectService(ah.Db, history, ah.Auth, sanitizer, ah.UserManager, null!);
+            Members = new ProjectMemberService(ah.Db, history, ah.Auth, ah.UserManager);
         }
         public void Dispose() => AuthHarness.Dispose();
     }

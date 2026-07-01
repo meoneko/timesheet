@@ -20,6 +20,8 @@ public class TaskListItem
     public string ProjectCode { get; set; } = string.Empty;
     public string ProjectName { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
+    public WorkItemType ItemType { get; set; }
+    public BugSeverity? Severity { get; set; }
     public TaskItemStatus Status { get; set; }
     public TaskPriority Priority { get; set; }
     public string AssigneeId { get; set; } = string.Empty;
@@ -28,9 +30,11 @@ public class TaskListItem
     public decimal EstimatedHours { get; set; }
     public decimal ActualHours { get; set; }
     public int TimeEntryCount { get; set; }
+    public int CommentCount { get; set; }
     public DateTime? DueDate { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public string? BlockedReason { get; set; }
 
     /// <summary>Actual - Estimate. Positive = over budget.</summary>
     public decimal Variance => ActualHours - EstimatedHours;
@@ -40,11 +44,20 @@ public class TaskListItem
 // 2) Edit / Create form
 // =====================================================================
 
-/// <summary>Backing model for both Create and Edit task forms.</summary>
+/// <summary>Backing model for both Create and Edit task forms. Supports Task and Bug types.</summary>
 public class TaskEditViewModel
 {
     /// <summary>Set by the controller when editing; 0 means "create new".</summary>
     public int Id { get; set; }
+    public WorkItemType ItemType { get; set; } = WorkItemType.Task;
+
+    // Bug-specific fields (used when ItemType == Bug)
+    public BugSeverity? Severity { get; set; }
+    public string? StepsToReproduceHtml { get; set; }
+    public string? ExpectedBehaviorHtml { get; set; }
+    public string? ActualBehaviorHtml { get; set; }
+    public string? Environment { get; set; }
+    public int? RelatedWorkItemId { get; set; }
 
     /// <summary>Project this task belongs to. Set by the controller when creating from a project context.</summary>
     public int ProjectId { get; set; }
@@ -74,6 +87,7 @@ public class TaskEditViewModel
 
     public SelectList? StatusOptions { get; set; }
     public SelectList? PriorityOptions { get; set; }
+    public SelectList? SeverityOptions { get; set; }
 
     /// <summary>Project members eligible to be assigned (Owner + Member; not Viewer).</summary>
     public List<UserLookupItem> AssignableUsers { get; set; } = new();
@@ -95,6 +109,8 @@ public class TaskDetailViewModel
     public string ProjectName { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string DescriptionHtml { get; set; } = string.Empty;
+    public WorkItemType ItemType { get; set; }
+    public BugSeverity? Severity { get; set; }
     public TaskItemStatus Status { get; set; }
     public TaskPriority Priority { get; set; }
     public string AssigneeId { get; set; } = string.Empty;
@@ -113,15 +129,26 @@ public class TaskDetailViewModel
     public List<TimeEntryListItem> TimeEntries { get; set; } = new();
     public List<AttachmentViewModel> Attachments { get; set; } = new();
     public List<HistoryRowViewModel> RecentHistory { get; set; } = new();
+    public List<CommentViewModel> Comments { get; set; } = new();
+    public int CommentCount { get; set; }
 
     // Viewer permissions (used by the view to gate actions).
     public bool ViewerCanEdit { get; set; }
     public bool ViewerCanDelete { get; set; }
     public bool ViewerCanLogTime { get; set; }
     public bool ViewerCanUploadAttachment { get; set; }
+    public bool ViewerCanComment { get; set; }
 
     public string? BlockedReason { get; set; }
     public long RowVersion { get; set; }
+
+    // Bug-specific fields
+    public string? StepsToReproduceHtml { get; set; }
+    public string? ExpectedBehaviorHtml { get; set; }
+    public string? ActualBehaviorHtml { get; set; }
+    public string? Environment { get; set; }
+    public int? RelatedWorkItemId { get; set; }
+    public string? RelatedWorkItemTitle { get; set; }
 }
 
 // =====================================================================
@@ -157,15 +184,11 @@ public class TimeEntryListItem
 public class TimeEntryEditViewModel
 {
     public int Id { get; set; }
-
-    /// <summary>Bound from the route. The controller enforces that the entry belongs to this task.</summary>
     public int TaskId { get; set; }
     public string TaskTitle { get; set; } = string.Empty;
     public int ProjectId { get; set; }
     public string ProjectCode { get; set; } = string.Empty;
     public string ProjectName { get; set; } = string.Empty;
-
-    /// <summary>Set on Create: which user the entry is logged against. Usually the current user.</summary>
     public string UserId { get; set; } = string.Empty;
     public string UserDisplayName { get; set; } = string.Empty;
 
@@ -177,13 +200,12 @@ public class TimeEntryEditViewModel
     [Range(0.01, 24)]
     public decimal DurationHours { get; set; }
 
-    /// <summary>Sanitized rich-text HTML. Stored alongside WorkLogText for search.</summary>
     [Required]
     public string WorkLogHtml { get; set; } = string.Empty;
 }
 
 // =====================================================================
-// 6) Attachment row projection (shared by Task + TimeEntry detail pages)
+// 6) Attachment row projection
 // =====================================================================
 
 public class AttachmentViewModel
@@ -194,67 +216,35 @@ public class AttachmentViewModel
     public string FileName { get; set; } = string.Empty;
     public string ContentType { get; set; } = string.Empty;
     public long Size { get; set; }
-
-    /// <summary>Human-readable file size (e.g. "1.2 MB"). Pre-computed by the service.</summary>
     public string SizeDisplay { get; set; } = string.Empty;
-
     public string UploadedByName { get; set; } = string.Empty;
     public DateTime UploadedAt { get; set; }
 }
 
 // =====================================================================
-// 5) Search & filter (spec section 13)
+// 7) Search & filter (spec section 13)
 // =====================================================================
 
-/// <summary>
-/// Bound to the Tasks search / filter form on the Tasks list page and on the global
-/// search results page. All fields are optional. Statuses / Priorities are multi-select
-/// (a task matches if its value is contained in the list).
-///
-/// Date range is interpreted as a creation-date range (CreatedAt).
-/// </summary>
 public class TaskFilterViewModel
 {
-    /// <summary>Free-text search against Title + DescriptionText (case-insensitive Contains).</summary>
     public string? Text { get; set; }
-
-    /// <summary>Optional project scope. Null = "all projects the user can see".</summary>
     public int? ProjectId { get; set; }
-
-    /// <summary>Optional assignee scope. Null = any user (or "unassigned" via empty string).</summary>
     public string? AssigneeId { get; set; }
-
-    /// <summary>Status filter (multi). Empty / null = all statuses.</summary>
+    public WorkItemType? ItemType { get; set; }
     public List<TaskItemStatus> Statuses { get; set; } = new();
-
-    /// <summary>Priority filter (multi). Empty / null = all priorities.</summary>
     public List<TaskPriority> Priorities { get; set; } = new();
-
-    /// <summary>
-    /// Raw string values posted by the filter form's checkbox group.
-    /// Parsed into <see cref="Statuses"/> by the controller before the model is passed to the service.
-    /// </summary>
     public string[]? StatusRaw { get; set; }
     public string[]? PriorityRaw { get; set; }
-
-    /// <summary>Optional lower bound on CreatedAt (inclusive).</summary>
     public DateTime? CreatedFrom { get; set; }
-
-    /// <summary>Optional upper bound on CreatedAt (inclusive, day-end).</summary>
     public DateTime? CreatedTo { get; set; }
-
-    // ---------------------------------------------------------------
-    // Populated dropdown lists (not bound from form).
-    // ---------------------------------------------------------------
-
     public SelectList? ProjectOptions { get; set; }
     public SelectList? AssigneeOptions { get; set; }
 
-    /// <summary>True if any filter (other than the project on the per-project page) is set.</summary>
     public bool HasAnyFilter =>
         !string.IsNullOrWhiteSpace(Text)
         || ProjectId.HasValue
         || !string.IsNullOrEmpty(AssigneeId)
+        || ItemType.HasValue
         || Statuses.Count > 0
         || Priorities.Count > 0
         || CreatedFrom.HasValue
@@ -262,7 +252,7 @@ public class TaskFilterViewModel
 }
 
 // =====================================================================
-// 6) Kanban Board View Models
+// 8) Kanban Board View Models
 // =====================================================================
 
 public class TaskBoardViewModel
@@ -271,6 +261,7 @@ public class TaskBoardViewModel
     public string ProjectCode { get; set; } = string.Empty;
     public string ProjectName { get; set; } = string.Empty;
     public bool IsTruncated { get; set; }
+    public WorkItemType ItemType { get; set; } = WorkItemType.Task;
     public TaskFilterViewModel Filter { get; set; } = new();
     public IReadOnlyList<TaskBoardColumnViewModel> Columns { get; set; } = new List<TaskBoardColumnViewModel>();
 }
@@ -286,18 +277,20 @@ public class TaskBoardColumnViewModel
 public class TaskCardViewModel
 {
     public int Id { get; set; }
-    public string Key { get; set; } = string.Empty; // Formatted as "{ProjectCode}-{Id}"
+    public string Key { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
+    public WorkItemType ItemType { get; set; }
     public TaskItemStatus Status { get; set; }
     public TaskPriority Priority { get; set; }
     public DateTime? DueDate { get; set; }
     public decimal EstimatedHours { get; set; }
     public decimal ActualHours { get; set; }
     public string? BlockedReason { get; set; }
+    public BugSeverity? Severity { get; set; }
     public bool CanEdit { get; set; }
-    public long RowVersion { get; set; } // UpdatedAt.Ticks representation
+    public long RowVersion { get; set; }
     public string AssigneeName { get; set; } = string.Empty;
     public string AssigneeId { get; set; } = string.Empty;
     public DateTime UpdatedAt { get; set; }
+    public int CommentCount { get; set; }
 }
-

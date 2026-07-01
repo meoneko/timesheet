@@ -691,3 +691,88 @@ body:has(#task-list-view) footer {
 #task-list-view .task-list-scroll::-webkit-scrollbar-thumb:hover {
     background: #a1a7b0;
 }
+
+/* ===========================================================================
+   Bug / Item Type UI Styles
+   =========================================================================== */
+
+/* Item Type Toggle (Create form) */
+.item-type-toggle-group {
+    display: inline-flex;
+    background-color: #EBECF0;
+    border-radius: 6px;
+    padding: 3px;
+    gap: 2px;
+}
+
+.item-type-toggle-btn {
+    border: none;
+    background: transparent;
+    color: #42526E;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 8px 20px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.item-type-toggle-btn.active {
+    background-color: #ffffff;
+    color: #0052CC;
+    box-shadow: 0 1px 3px rgba(9, 30, 66, 0.12);
+}
+
+.item-type-toggle-btn.active.bug {
+    color: #DE350B;
+}
+
+.item-type-toggle-btn:hover:not(.active) {
+    color: #172B4D;
+}
+
+/* Filter Pill - Bug variant */
+.filter-pill.active.bug {
+    background-color: #FFEBE6 !important;
+    border-color: #FFC0B3 !important;
+    color: #DE350B !important;
+}
+
+.filter-pill.bug:hover {
+    background-color: #FFEBE6;
+    border-color: #FFC0B3;
+    color: #DE350B;
+}
+
+/* Filter Pill - All variant (link-based) */
+a.filter-pill {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid #DFE1E6;
+    background-color: #ffffff;
+    color: #42526E;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    user-select: none;
+}
+
+a.filter-pill:hover {
+    background-color: #F4F5F7;
+    border-color: #C1C7D0;
+    color: #172B4D;
+    text-decoration: none;
+}
+
+a.filter-pill.active {
+    background-color: #DEEBFF;
+    border-color: #0052CC;
+    color: #0052CC;
+}

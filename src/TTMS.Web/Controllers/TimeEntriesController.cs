@@ -1,6 +1,6 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using TTMS.Web.Services;
 using IAuthorizationService = TTMS.Web.Services.IAuthorizationService;
 
@@ -13,18 +13,15 @@ namespace TTMS.Web.Controllers;
 /// </summary>
 [Authorize]
 [Route("Projects/{projectId:int}/Tasks/{taskId:int}/TimeEntries")]
-public class TimeEntriesController : Controller
+public class TimeEntriesController : BaseController
 {
     private readonly ITimeEntryService _entries;
     private readonly IAuthorizationService _authz;
-    public TimeEntriesController(ITimeEntryService entries, IAuthorizationService authz)
+    public TimeEntriesController(ITimeEntryService entries, IAuthorizationService authz, ILogger<TimeEntriesController> logger) : base(logger)
     {
         _entries = entries;
         _authz = authz;
     }
-
-    private string CurrentUserId()
-        => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
 
     // ===========================================================================
     // Create

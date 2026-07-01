@@ -30,6 +30,7 @@ public class UserDashboardViewModel
     // ---------- Tables ----------
     public List<UserDashboardTaskRow> RecentTasks { get; set; } = new();
     public List<UserDashboardTimeEntryRow> RecentTimeEntries { get; set; } = new();
+    public List<CommentFeedRow> RecentComments { get; set; } = new();
 }
 
 public class UserDashboardTaskRow
@@ -93,6 +94,9 @@ public class ProjectDashboardViewModel
     // ---------- Member load (per-member open tasks + hours) ----------
     public List<ProjectMemberLoadRow> MemberLoad { get; set; } = new();
 
+    // ---------- Recent comments (on this project + its tasks) ----------
+    public List<CommentFeedRow> RecentComments { get; set; } = new();
+
     // ---------- Permission flag for the View ----------
     public bool CanManage { get; set; } // project Owner OR system Admin
 }
@@ -139,6 +143,9 @@ public class AdminDashboardViewModel
 
     // ---------- Top users by hours this month (top 10) ----------
     public List<AdminTopUserRow> TopUsers { get; set; } = new();
+
+    // ---------- Recent comments (system-wide) ----------
+    public List<CommentFeedRow> RecentComments { get; set; } = new();
 
     // ---------- Users table (paged) ----------
     public List<AdminUserRow> Users { get; set; } = new();

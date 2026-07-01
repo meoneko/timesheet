@@ -19,6 +19,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<TimeEntry> TimeEntries => Set<TimeEntry>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<History> Histories => Set<History>();
+    public DbSet<Comment> Comments => Set<Comment>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -65,8 +66,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.HasIndex(t => t.ItemStatus);
             e.HasIndex(t => t.IsDeleted);
             e.HasIndex(t => new { t.ProjectId, t.IsDeleted, t.UpdatedAt });
+            e.HasIndex(t => new { t.ItemType, t.IsDeleted });
+            e.HasIndex(t => t.RelatedWorkItemId);
+            e.Property(t => t.ItemType).HasConversion<int>();
+            e.Property(t => t.Severity).HasConversion<int>();
+            e.Property(t => t.Environment).HasMaxLength(500);
             e.HasOne(t => t.Project).WithMany(p => p.Tasks).HasForeignKey(t => t.ProjectId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(t => t.Assignee).WithMany().HasForeignKey(t => t.AssigneeId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(t => t.RelatedWorkItem).WithMany().HasForeignKey(t => t.RelatedWorkItemId).OnDelete(DeleteBehavior.SetNull);
         });
 
         // ===== TimeEntry =====
@@ -80,6 +87,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.HasIndex(te => te.WorkDate);
             e.HasIndex(te => te.IsDeleted);
             e.HasIndex(te => new { te.TaskId, te.WorkDate });
+            e.HasIndex(te => new { te.WorkDate, te.UserId });
             e.HasOne(te => te.Task).WithMany(t => t.TimeEntries).HasForeignKey(te => te.TaskId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(te => te.User).WithMany().HasForeignKey(te => te.UserId).OnDelete(DeleteBehavior.Restrict);
         });
@@ -114,6 +122,22 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         b.Entity<ApplicationUser>(e =>
         {
             e.Property(u => u.FullName).HasMaxLength(200);
+        });
+
+        // ===== Comment =====
+        b.Entity<Comment>(e =>
+        {
+            e.ToTable("Comments");
+            e.HasKey(c => c.Id);
+            e.Property(c => c.EntityType).HasConversion<int>();
+            e.Property(c => c.ContentHtml).IsRequired();
+            e.Property(c => c.ContentText).IsRequired();
+            e.HasIndex(c => new { c.EntityType, c.EntityId });
+            e.HasIndex(c => c.AuthorId);
+            e.HasIndex(c => c.ParentCommentId);
+            e.HasIndex(c => c.IsDeleted);
+            e.HasOne(c => c.Author).WithMany().HasForeignKey(c => c.AuthorId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(c => c.ParentComment).WithMany(c => c.Replies).HasForeignKey(c => c.ParentCommentId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

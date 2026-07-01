@@ -21,6 +21,7 @@ public class ProjectListItem
     public ProjectStatus Status { get; set; }
     public int MemberCount { get; set; }
     public int OpenTaskCount { get; set; }
+    public int CommentCount { get; set; }
     public DateTime CreatedAt { get; set; }
     /// <summary>The viewer's role on this project; null if they are not a member (admins see Owner).</summary>
     public ProjectMemberRole? ViewerRole { get; set; }
@@ -78,6 +79,9 @@ public class ProjectDetailViewModel
 
     public List<ProjectMemberViewModel> Members { get; set; } = new();
     public List<HistoryRowViewModel> RecentHistory { get; set; } = new();
+    public List<CommentViewModel> Comments { get; set; } = new();
+    public int CommentCount { get; set; }
+    public bool ViewerCanComment { get; set; }
     public int OpenTaskCount { get; set; }
     public int TotalTaskCount { get; set; }
 

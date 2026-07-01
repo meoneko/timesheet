@@ -215,12 +215,12 @@
 
                 const reason = blockedInput.value.trim();
                 if (!reason) {
-                    alert('A blocked reason is required.');
+                    Toast.warning('A blocked reason is required.');
                     return;
                 }
 
                 if (reason.length > 500) {
-                    alert('Blocked reason cannot exceed 500 characters.');
+                    Toast.warning('Blocked reason cannot exceed 500 characters.');
                     return;
                 }
 
@@ -305,12 +305,12 @@
 
                     if (response.status === 409) {
                         // Concurrency conflict
-                        alert('Conflict: This task was modified by another user. The board will now reload.');
-                        window.location.reload();
+                        Toast.error('Conflict: This task was modified by another user. The board will now reload.', 6000);
+                        setTimeout(() => window.location.reload(), 1000);
                         return;
                     }
 
-                    alert(errMsg);
+                    Toast.error(errMsg);
                     revertCard(card);
                     if (selectEl) {
                         selectEl.disabled = false;
@@ -321,7 +321,7 @@
                 }
             } catch (err) {
                 console.error('Error updating task status:', err);
-                alert('An error occurred while updating the task status.');
+                Toast.error('An error occurred while updating the task status.');
                 revertCard(card);
                 if (selectEl) {
                     selectEl.disabled = false;
@@ -534,12 +534,12 @@
                             await openDrawer(taskId, false);
                             updateBoardCardHours(taskId);
                         } else {
-                            alert('Failed to log time. Please check your inputs.');
+                            Toast.error('Failed to log time. Please check your inputs.');
                             if (submitBtn) submitBtn.disabled = false;
                         }
                     } catch (err) {
                         console.error('Error logging time:', err);
-                        alert('An error occurred while logging time.');
+                        Toast.error('An error occurred while logging time.');
                         if (submitBtn) submitBtn.disabled = false;
                     }
                 });
@@ -568,12 +568,12 @@
                         if (response.ok) {
                             await openDrawer(taskId, false);
                         } else {
-                            alert('Upload failed. Check file size (max 50MB) and format.');
+                            Toast.error('Upload failed. Check file size (max 50MB) and format.');
                             if (submitBtn) submitBtn.disabled = false;
                         }
                     } catch (err) {
                         console.error('Error uploading file:', err);
-                        alert('An error occurred during file upload.');
+                        Toast.error('An error occurred during file upload.');
                         if (submitBtn) submitBtn.disabled = false;
                     }
                 });
@@ -601,11 +601,11 @@
                             await openDrawer(taskId, false);
                             updateBoardCardHours(taskId);
                         } else {
-                            alert('Failed to remove time entry.');
+                            Toast.error('Failed to remove time entry.');
                         }
                     } catch (err) {
                         console.error('Error deleting time entry:', err);
-                        alert('An error occurred.');
+                        Toast.error('An error occurred.');
                     }
                 });
             });
@@ -631,11 +631,11 @@
                         if (response.ok) {
                             await openDrawer(taskId, false);
                         } else {
-                            alert('Failed to remove attachment.');
+                            Toast.error('Failed to remove attachment.');
                         }
                     } catch (err) {
                         console.error('Error deleting attachment:', err);
-                        alert('An error occurred.');
+                        Toast.error('An error occurred.');
                     }
                 });
             });

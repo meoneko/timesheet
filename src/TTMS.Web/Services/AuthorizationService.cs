@@ -161,7 +161,54 @@ public class AuthorizationService : IAuthorizationService
         {
             AttachmentEntityType.Task => await CanViewTaskAsync(userId, attachment.EntityId),
             AttachmentEntityType.TimeEntry => await CanViewTimeEntryAsync(userId, attachment.EntityId),
+            AttachmentEntityType.Comment => await CanViewCommentAttachmentAsync(userId, attachment.EntityId),
             _ => false,
         };
+    }
+
+    public async Task<bool> CanViewCommentsAsync(string userId, CommentEntityType entityType, int entityId)
+    {
+        if (string.IsNullOrEmpty(userId)) return false;
+        if (await IsAdminAsync(userId)) return true;
+        return entityType switch
+        {
+            CommentEntityType.Task => await CanViewTaskAsync(userId, entityId),
+            CommentEntityType.Project => await CanViewProjectAsync(userId, entityId),
+            _ => false,
+        };
+    }
+
+    public async Task<bool> CanCreateCommentAsync(string userId, CommentEntityType entityType, int entityId)
+    {
+        // Per requirements: anyone who can view the project can comment.
+        return await CanViewCommentsAsync(userId, entityType, entityId);
+    }
+
+    public async Task<bool> CanEditCommentAsync(string userId, int commentId)
+    {
+        if (string.IsNullOrEmpty(userId)) return false;
+        if (await IsAdminAsync(userId)) return true;
+        return await _db.Comments
+            .AnyAsync(c => c.Id == commentId && !c.IsDeleted && c.AuthorId == userId);
+    }
+
+    public async Task<bool> CanDeleteCommentAsync(string userId, int commentId)
+    {
+        // Same rule as edit: Admin or author.
+        return await CanEditCommentAsync(userId, commentId);
+    }
+
+    /// <summary>
+    /// Resolves whether the user can access an attachment on a comment by checking
+    /// the comment's parent entity (Task or Project).
+    /// </summary>
+    private async Task<bool> CanViewCommentAttachmentAsync(string userId, int commentId)
+    {
+        var comment = await _db.Comments.AsNoTracking()
+            .Where(c => c.Id == commentId && !c.IsDeleted)
+            .Select(c => new { c.EntityType, c.EntityId })
+            .FirstOrDefaultAsync();
+        if (comment is null) return false;
+        return await CanViewCommentsAsync(userId, comment.EntityType, comment.EntityId);
     }
 }

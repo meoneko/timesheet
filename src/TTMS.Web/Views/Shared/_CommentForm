@@ -1,0 +1,27 @@
+@using TTMS.Web.Models.Enums
+@using TTMS.Web.Models.ViewModels
+@{
+    var entityType = (CommentEntityType)(ViewData["EntityType"] ?? CommentEntityType.Task);
+    var entityId = (int)(ViewData["EntityId"] ?? 0);
+    var returnUrl = (string)(ViewData["ReturnUrl"] ?? Context.Request.Path + Context.Request.QueryString);
+}
+
+<div class="comment-form-wrapper mb-4">
+    <form asp-controller="Comments" asp-action="Create" method="post" class="comment-form">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="EntityType" value="@entityType" />
+        <input type="hidden" name="EntityId" value="@entityId" />
+        <input type="hidden" name="ParentCommentId" value="" />
+        <input type="hidden" name="returnUrl" value="@returnUrl" />
+
+        <div class="mb-2">
+            <textarea name="ContentHtml" id="commentEditor" class="form-control" rows="3" placeholder="Write a comment..." required></textarea>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2">
+            <button type="submit" class="btn btn-sm btn-primary">
+                <i class="bi bi-send"></i> Post Comment
+            </button>
+        </div>
+    </form>
+</div>

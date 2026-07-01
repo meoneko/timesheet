@@ -12,82 +12,83 @@
     <link rel="stylesheet" href="~/TTMS.Web.styles.css" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
 </head>
-<body data-user-id="@(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "")">
-                                                @if (User.Identity?.IsAuthenticated == true)
-                        {
-    <div class="ttms-app with-sidebar">
-        <aside class="ttms-sidebar d-none d-md-block" aria-label="Primary navigation">
-            <partial name="_Sidebar" />
-        </aside>
+@{
+    var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
+}
+<body data-user-id="@currentUserId">
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <div class="ttms-app with-sidebar">
+            <aside class="ttms-sidebar d-none d-md-block" aria-label="Primary navigation">
+                <partial name="_Sidebar" />
+            </aside>
 
-        <div class="ttms-backdrop d-md-none" data-sidebar-close hidden></div>
-        <aside class="ttms-sidebar ttms-sidebar-offcanvas d-md-none" aria-label="Primary navigation" hidden>
-            <partial name="_Sidebar" />
-        </aside>
+            <div class="ttms-backdrop d-md-none" data-sidebar-close hidden></div>
+            <aside class="ttms-sidebar ttms-sidebar-offcanvas d-md-none" aria-label="Primary navigation" hidden>
+                <partial name="_Sidebar" />
+            </aside>
 
-        <div class="ttms-main">
-            <header>
-                <nav class="navbar navbar-light bg-white border-bottom box-shadow ttms-topbar">
-                    <div class="container-fluid">
-                        <button type="button" class="btn btn-outline-secondary btn-sm d-md-none me-2 ttms-sidebar-toggle" aria-label="Open menu" aria-controls="ttmsSidebarOffcanvas" aria-expanded="false"><i class="bi bi-list"></i></button>
-                        <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">TTMS</a>
-                        <div class="ms-auto">
-                            <partial name="_LoginPartial" />
+            <div class="ttms-main">
+                <header>
+                    <nav class="navbar navbar-light bg-white border-bottom box-shadow ttms-topbar">
+                        <div class="container-fluid">
+                            <button type="button" class="btn btn-outline-secondary btn-sm d-md-none me-2 ttms-sidebar-toggle" aria-label="Open menu" aria-controls="ttmsSidebarOffcanvas" aria-expanded="false"><i class="bi bi-list"></i></button>
+                            <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">TTMS</a>
+                            <div class="ms-auto">
+                                <partial name="_LoginPartial" />
+                            </div>
                         </div>
-                    </div>
-                </nav>
-    </header>
-            <div class="container-fluid ttms-content">
-        <main role="main">
-            @if (TempData["StatusMessage"] is string ok)
-            {
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    @ok
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </nav>
+                </header>
+                <div class="container-fluid ttms-content">
+                    <main role="main">
+                        @if (TempData["StatusMessage"] is string ok)
+                        {
+                            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                @ok
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        }
+                        @if (TempData["ErrorMessage"] is string err)
+                        {
+                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                @err
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        }
+                        @RenderBody()
+                    </main>
                 </div>
-            }
-            @if (TempData["ErrorMessage"] is string err)
-            {
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    @err
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <header>
+            <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+                <div class="container-fluid">
+                    <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">TTMS</a>
+                    <partial name="_LoginPartial" />
                 </div>
-            }
-            @RenderBody()
-        </main>
-        <footer class="border-top footer text-muted mt-auto">
-            <div class="container-fluid">
+            </nav>
+        </header>
+        <div class="container">
+            <main role="main">
+                @RenderBody()
+            </main>
+        </div>
+        <footer class="border-top footer text-muted">
+            <div class="container">
                 &copy; @DateTime.UtcNow.Year - TTMS
             </div>
         </footer>
-    </div>
-    </div>
-}
-else
-{
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">TTMS</a>
-                <partial name="_LoginPartial" />
-            </div>
-        </nav>
-    </header>
-    <div class="container">
-        <main role="main">
-            @RenderBody()
-        </main>
-    </div>
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; @DateTime.UtcNow.Year - TTMS
-        </div>
-    </footer>
-}
+    }
 
         <script src="~/lib/jquery/dist/jquery.min.js"></script>
         <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="~/js/toast.js" asp-append-version="true"></script>
         <script src="~/js/site.js" asp-append-version="true"></script>
+        <script src="~/js/comments.js" asp-append-version="true"></script>
         <script>
             // Debounced global search box (spec section 13): auto-submit 400ms after the
             // user stops typing. Falls through to a normal form submit if JS is disabled.

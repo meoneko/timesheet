@@ -1,0 +1,77 @@
+@model List<TTMS.Web.Controllers.AdminController.AdminUserRow>
+@using TTMS.Web.Data
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<TTMS.Web.Models.Entities.ApplicationUser> UserManager
+@{
+    ViewData["Title"] = "User Management";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Admin">Admin</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Users</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">User Management</h1>
+    <span class="text-muted small">@Model.Count user(s)</span>
+</div>
+
+@if (!Model.Any())
+{
+    <p class="text-muted"><em>No users found.</em></p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover align-middle bg-white border rounded shadow-sm">
+            <thead class="table-light">
+                <tr>
+                    <th>Email</th>
+                    <th>Full Name</th>
+                    <th>Joined</th>
+                    <th>Role</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var u in Model)
+                {
+                    <tr>
+                        <td class="fw-semibold">@u.Email</td>
+                        <td>@(string.IsNullOrWhiteSpace(u.FullName) ? "—" : u.FullName)</td>
+                        <td class="text-muted small">@u.CreatedAt.ToString("yyyy-MM-dd")</td>
+                        <td>
+                            @if (u.IsAdmin)
+                            {
+                                <span class="badge bg-success">Admin</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">User</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <form asp-action="ToggleAdmin" asp-route-userId="@u.Id" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                @if (u.IsAdmin)
+                                {
+                                    <button type="submit" class="btn btn-sm btn-outline-warning" title="Remove Admin role">
+                                        <i class="bi bi-shield-x me-1"></i>Remove Admin
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Grant Admin role">
+                                        <i class="bi bi-shield-check me-1"></i>Make Admin
+                                    </button>
+                                }
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

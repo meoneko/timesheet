@@ -45,6 +45,10 @@ public class HistoryService : IHistoryService
                               string? oldValue = null, string? newValue = null)
         => Log("Attachment", attachmentId, evt, changedById, oldValue, newValue);
 
+    public void LogComment(int commentId, HistoryEvent evt, string changedById,
+                           string? oldValue = null, string? newValue = null)
+        => Log("Comment", commentId, evt, changedById, oldValue, newValue);
+
     public IQueryable<History> GetHistory(string entity, int entityId)
     {
         return _db.Histories
